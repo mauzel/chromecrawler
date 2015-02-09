@@ -6,3 +6,7 @@ class BaseStore(object):
 	@abstractmethod
 	def get_key(self, key):
 		pass
+
+	@abstractmethod
+	def put_key(self, key):
+		pass

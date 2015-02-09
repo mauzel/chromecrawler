@@ -1,3 +1,8 @@
 pip:
 	redis
 	enum34
+	hiredis
+
+apt:
+	python-dev
+	redis-server
