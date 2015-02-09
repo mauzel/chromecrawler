@@ -1,0 +1,14 @@
+{
+    "dictionary_config": {
+        "host": "localhost",
+        "port": "6379",
+        "db": "0",
+        "dictionaries": {
+            "en-US": [
+                "a",
+                "b",
+                "c"
+            ]
+        }
+    }
+}
