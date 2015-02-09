@@ -1,5 +1,6 @@
 from basestore import BaseStore
 import redis, json
+import config_utils
 
 from enum import Enum, unique
 import logging
@@ -58,7 +59,7 @@ class DictionaryAttackKeyValue:
 				alphabet=AlphabetType[json['alphabet']],
 				last_retrieved=json['last_retrieved']
 				)
-		return None
+		raise TypeError('Requested json to deserialized into a DictionaryAttackKeyValue did not have the correct __type__: %s' % json)
 
 
 class DictionarySearchStore(BaseStore):
@@ -79,6 +80,7 @@ class DictionarySearchStore(BaseStore):
 	def release(self, key_value):
 		"""Atomically release the key-value to return it to the queue."""
 		alphabet = key_value.alphabet
+		key_value.last_retrieved = config_utils.current_time_millis()
 		pipeline = self.r.pipeline()
 		pipeline.lrem(alphabet.processing_name(), -1, key_value.to_value())
 		pipeline.rpush(alphabet.name, key_value.to_value())

@@ -20,6 +20,8 @@ if __name__ == '__main__':
 	dicts = config['dictionary_config']['dictionaries']
 	print dicts
 
+	d.delete_all()
+
 	# Load all alphabets' phrases into Redis
 	for alphabet in dicts.keys():
 		key_values = [ DictionaryAttackKeyValue(phrase=x,
@@ -27,7 +29,3 @@ if __name__ == '__main__':
 
 		for result in d.put_pipelined(key_values):
 			assert result
-
-	raw_input("Press enter to clear. ^C to exit without clearing.")
-
-	d.delete_all()
