@@ -1,4 +1,4 @@
-from dao.dictsearchstore import DictionarySearchStore, DictionaryAttackKey
+from dao.dictsearchstore import DictionarySearchStore, DictionaryAttackKeyValue
 import redis
 import argparse, json, config_utils
 
@@ -15,8 +15,6 @@ if __name__ == '__main__':
 		config = json.loads(f.read())
 
 	r = config_utils.redis_from_config(config)
-	dak = DictionaryAttackKey(phrase='a')
-
 	d = DictionarySearchStore(r)
 
-	print d.get_key(dak)
+	print d.get_next()

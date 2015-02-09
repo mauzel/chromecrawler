@@ -1,4 +1,4 @@
-from dao.dictsearchstore import DictionarySearchStore, DictionaryAttackKey
+from dao.dictsearchstore import DictionarySearchStore, DictionaryAttackKeyValue, AlphabetType
 import redis
 import argparse, json, config_utils
 
@@ -21,10 +21,12 @@ if __name__ == '__main__':
 	print dicts
 
 	for alphabet in dicts.keys():
-		keys = [ DictionaryAttackKey(phrase=x) for x in dicts[alphabet] ]
-		for result in d.put_pipelined_keys(keys):
+		key_values = [ DictionaryAttackKeyValue(phrase=x,
+						alphabet=AlphabetType[alphabet]) for x in dicts[alphabet] ]
+
+		for result in d.put_pipelined(key_values):
 			assert result
 
-	raw_input("Press enter to clear")
+	raw_input("Press enter to clear. ^C to exit without clearing.")
 
 	d.delete_all()
