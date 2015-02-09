@@ -20,6 +20,7 @@ if __name__ == '__main__':
 	dicts = config['dictionary_config']['dictionaries']
 	print dicts
 
+	# Load all alphabets' phrases into Redis
 	for alphabet in dicts.keys():
 		key_values = [ DictionaryAttackKeyValue(phrase=x,
 						alphabet=AlphabetType[alphabet]) for x in dicts[alphabet] ]

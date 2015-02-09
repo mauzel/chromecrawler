@@ -39,11 +39,26 @@ class DictionaryAttackKeyValue:
 
 		self.alphabet = alphabet
 		self.phrase = phrase
-		self.last_retrieved = None
+		self.last_retrieved = last_retrieved
 
 	def to_value(self):
 		"""What this key-value's value looks like."""
-		return { 'phrase': self.phrase, 'last_retrieved': self.last_retrieved }
+		return json.dumps({
+			'__type__': 'DictionaryAttackKeyValue',
+			'alphabet': self.alphabet.name,
+			'phrase': self.phrase,
+			'last_retrieved': self.last_retrieved
+			})
+
+	@staticmethod
+	def deserialize(json):
+		if '__type__' in json and json['__type__'] == 'DictionaryAttackKeyValue':
+			return DictionaryAttackKeyValue(
+				phrase=json['phrase'],
+				alphabet=AlphabetType[json['alphabet']],
+				last_retrieved=json['last_retrieved']
+				)
+		return None
 
 
 class DictionarySearchStore(BaseStore):
@@ -59,10 +74,15 @@ class DictionarySearchStore(BaseStore):
 		Keyword arguments:
 		alphabet -- AlphabetType Enum representing the language that you want to get the next value for.
 		"""
-		return self.r.rpoplpush(alphabet.name, alphabet.processing_name())
+		return json.loads(self.r.rpoplpush(alphabet.name, alphabet.processing_name()))
 
 	def release(self, key_value):
-		raise NotImplementedError
+		"""Atomically release the key-value to return it to the queue."""
+		alphabet = key_value.alphabet
+		pipeline = self.r.pipeline()
+		pipeline.lrem(alphabet.processing_name(), -1, key_value.to_value())
+		pipeline.rpush(alphabet.name, key_value.to_value())
+		return pipeline.execute()
 
 	def put(self, key_value):
 		raise NotImplementedError
@@ -76,7 +96,7 @@ class DictionarySearchStore(BaseStore):
 
 		for key_value in key_values:
 			list_name = key_value.alphabet.name
-			json_value = json.dumps(key_value.to_value())
+			json_value = key_value.to_value()
 			pipe.rpush(list_name, json_value)
 			logging.info('Queued pipelined put: %s, %s' % (list_name, json_value))
 

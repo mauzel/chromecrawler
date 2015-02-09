@@ -17,4 +17,5 @@ if __name__ == '__main__':
 	r = config_utils.redis_from_config(config)
 	d = DictionarySearchStore(r)
 
-	print d.get_next()
+	dak = DictionaryAttackKeyValue.deserialize(d.get_next())
+	d.release(dak)
