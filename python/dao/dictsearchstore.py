@@ -7,6 +7,7 @@ import logging
 
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 @unique
@@ -83,7 +84,7 @@ class DictionarySearchStore(BaseStore):
 		pipeline = self.r.pipeline()
 		pipeline.lrem(alphabet.processing_name(), -1, key_value.to_value())
 		key_value.last_retrieved = config_utils.current_time_millis()
-		pipeline.rpush(alphabet.name, key_value.to_value())
+		pipeline.lpush(alphabet.name, key_value.to_value())
 		return pipeline.execute()
 
 	def put(self, key_value):
@@ -100,7 +101,7 @@ class DictionarySearchStore(BaseStore):
 			list_name = key_value.alphabet.name
 			json_value = key_value.to_value()
 			pipe.rpush(list_name, json_value)
-			logging.info('Queued pipelined put: %s, %s' % (list_name, json_value))
+			logger.info('Queued pipelined put: %s, %s' % (list_name, json_value))
 
 		return pipe.execute()
 
@@ -110,12 +111,12 @@ class DictionarySearchStore(BaseStore):
 		pipe = self.r.pipeline()
 		for key in self.r.scan_iter():
 			pipe.delete(key)
-			logging.info('Adding for deletion: %s' % key)
+			logger.info('Adding for deletion: %s' % key)
 			batch_count += 1
 
 			if not batch_count % 10:
-				logging.info('Executed pipe.execute(): %s' % pipe.execute())
+				logger.info('Executed pipe.execute(): %s' % pipe.execute())
 				batch_count = 0
 
 		if batch_count:
-			logging.info('Executed final pipe.execute(): %s' % pipe.execute())
+			logger.info('Executed final pipe.execute(): %s' % pipe.execute())

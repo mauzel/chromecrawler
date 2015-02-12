@@ -1,4 +1,5 @@
 {
+    "crawl_point": "https://chrome.google.com/webstore/ajax/item",
     "dictionary_config": {
         "host": "localhost",
         "port": "6379",
@@ -33,5 +34,10 @@
                 "z"
             ]
         }
+    },
+    "app_meta_config": {
+    	"host": "localhost",
+        "port": "6379",
+        "db": "1"
     }
 }
