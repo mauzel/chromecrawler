@@ -80,9 +80,9 @@ class DictionarySearchStore(BaseStore):
 	def release(self, key_value):
 		"""Atomically release the key-value to return it to the queue."""
 		alphabet = key_value.alphabet
-		key_value.last_retrieved = config_utils.current_time_millis()
 		pipeline = self.r.pipeline()
 		pipeline.lrem(alphabet.processing_name(), -1, key_value.to_value())
+		key_value.last_retrieved = config_utils.current_time_millis()
 		pipeline.rpush(alphabet.name, key_value.to_value())
 		return pipeline.execute()
 

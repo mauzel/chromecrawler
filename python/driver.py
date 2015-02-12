@@ -1,6 +1,8 @@
-from dao.dictsearchstore import DictionarySearchStore, DictionaryAttackKeyValue
 import redis
 import argparse, json, config_utils
+
+from dao.dictsearchstore import DictionarySearchStore, DictionaryAttackKeyValue
+from crawler.discoverer import *
 
 
 parser = argparse.ArgumentParser(description='driver for testing')
@@ -17,5 +19,10 @@ if __name__ == '__main__':
 	r = config_utils.redis_from_config(config)
 	d = DictionarySearchStore(r)
 
-	dak = DictionaryAttackKeyValue.deserialize(d.get_next())
-	d.release(dak)
+	#dak = DictionaryAttackKeyValue.deserialize(d.get_next())
+	#d.release(dak)
+
+	c = WebStoreDiscoverer(d)
+
+	c.run()
+	c.run()
