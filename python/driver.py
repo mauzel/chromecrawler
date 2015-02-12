@@ -22,7 +22,6 @@ if __name__ == '__main__':
 	#dak = DictionaryAttackKeyValue.deserialize(d.get_next())
 	#d.release(dak)
 
-	c = WebStoreDiscoverer(d)
+	c = WebStoreDiscoverer(d, url=config['crawl_point'])
 
-	while True:
-		c.run()
+	c.run()
