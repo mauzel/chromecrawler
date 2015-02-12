@@ -4,12 +4,12 @@ import time
 DICT_CONFIG_KEY = 'dictionary_config'
 
 
-def redis_from_config(config):
-	if not 'dictionary_config' in config:
+def redis_from_config(config, key=DICT_CONFIG_KEY):
+	if not key in config:
 		raise KeyError('Your configuration file must provide a %s' % 
-						DICT_CONFIG_KEY)
+						key)
 
-	dict_config = config[DICT_CONFIG_KEY]
+	dict_config = config[key]
 	dict_host = dict_config['host']
 	dict_port = dict_config['port']
 	dict_db = dict_config['db']

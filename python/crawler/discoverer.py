@@ -3,6 +3,7 @@ sys.path.append("..")
 
 import urllib2, collections, urlparse, demjson
 from urllib import urlencode
+import time
 
 from dao.dictsearchstore import *
 import logging
@@ -51,6 +52,7 @@ class WebStoreParser:
 
 		# Get the "token" value to know what our next request index is.
 		parse_result.token = parse_result.getitemsresponse[4].split('@')
+		logger.info('Got token: %s' % parse_result.token)
 		assert len(parse_result.token) == 2
 
 	def parse(self, response):
@@ -66,17 +68,13 @@ class WebStoreParser:
 
 class WebStoreDiscoverer:
 
-	def __init__(self, dict_store, url):
-		self.alphabets = [ AlphabetType.en_US ]
-		self.dict_store = dict_store
-		self.crawl_point = url
-		logger.info('Crawl point: %s' % self.crawl_point)
+	def reset_url_params(self):
 		self.url_params = collections.OrderedDict([
 			('hl', 'en-US'),
 			('gl', 'US'),
 			('pv', '20141016'),
 			('mce', 'rlb,svp,atf,c3d,ncr,ctm,ac,hot,fcf'),
-			('count', '5'),
+			('count', '52'),
 			('token', ''),
 			('category', 'apps'),
 			('searchTerm', ''),
@@ -85,8 +83,16 @@ class WebStoreDiscoverer:
 			('features', '5'),
 			('rt', 'j')
 		])
+
+	def __init__(self, dict_store, url, db):
+		self.alphabets = [ AlphabetType.en_US ]
+		self.dict_store = dict_store
+		self.crawl_point = url
+		logger.info('Crawl point: %s' % self.crawl_point)
+		self.reset_url_params()
 		self.parser = WebStoreParser()
 		self.dak = None
+		self.db = db
 
 	def __get_next_dak(self, alphabet):
 		dak = self.dict_store.get_next(alphabet)
@@ -98,28 +104,62 @@ class WebStoreDiscoverer:
 		logger.info('Returned: %s' % dak.to_value())
 
 	def build_crawl_url(self, dak):
+		"""Returns (url, data) for the given dak."""
 		self.url_params['searchTerm'] = dak.phrase
 		return (self.crawl_point, urlencode(self.url_params))
 
 	def post_request(self, url, data):
+		"""Simple wrapper to POST (url, data). Returns response."""
 		request = urllib2.Request(url, data, headers=HTTP_HEADERS)
 		return urllib2.urlopen(request)
 
-	def store_all_app_meta(self, app_meta):
-		pass
+	def record_new_app_ids(self, app_meta):
+		"""Store the app ids we've crawled into a persistent set.
+
+		The point of this is to keep track of how many unique
+		app ids we've come across.
+		"""
+		# TODO: Replace with abstracted out AppKeyValueStore
+		pipe = self.db.pipeline()
+
+		for app_id in app_meta.keys():
+			list_name = self.dak.alphabet.name
+			pipe.sadd(list_name, app_id)
+			logger.info('Queued pipelined put: %s, %s' % (list_name, app_id))
+
+		return pipe.execute()
 
 	def fetch_app_packages(self, app_meta):
 		pass
 
 	def run(self):
-		self.dak = self.__get_next_dak(self.alphabets[0])
-		url, data = self.build_crawl_url(self.dak)
-		response = self.post_request(url, data)
+		"""Handles delegation of work to crawl the web store for
+		app ids and metadata.
 
-		parse_result = self.parser.parse(response)
-		self.store_all_app_meta(parse_result.app_meta)
-		self.fetch_app_packages(parse_result.app_meta)
+		This function will get the next DictionaryAttacKeyValue to use
+		to search the Chrome Web Store, and then will return it to the
+		queue when it is done.
+		"""
+		self.dak = self.__get_next_dak(self.alphabets[0])
+
+		token_r = 0
+		while not token_r or token_r < 900:
+			url, data = self.build_crawl_url(self.dak)
+			response = self.post_request(url, data)
+
+			parse_result = self.parser.parse(response)
+			self.record_new_app_ids(parse_result.app_meta)
+			self.fetch_app_packages(parse_result.app_meta)
+			self.url_params['token'] = '@'.join(parse_result.token)
+			logger.info('Next token: %s' % self.url_params['token'])
+			try:
+				token_r = int(parse_result.token[1])
+			except ValueError:
+				logger.info('Possibly reached end of results because could not parse token')
+				break
+			time.sleep(3)
 
 
 		if self.dak:
+			self.reset_url_params()
 			self.__return_dak(self.dak)

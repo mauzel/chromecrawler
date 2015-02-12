@@ -21,7 +21,10 @@ if __name__ == '__main__':
 
 	#dak = DictionaryAttackKeyValue.deserialize(d.get_next())
 	#d.release(dak)
+	app_r = config_utils.redis_from_config(config, key='app_meta_config')
+	c = WebStoreDiscoverer(d, url=config['crawl_point'], db=app_r)
 
-	c = WebStoreDiscoverer(d, url=config['crawl_point'])
-
-	c.run()
+	for x in xrange(100):
+		c.run()
+		import time
+		time.sleep(3)
