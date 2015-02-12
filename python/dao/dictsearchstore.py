@@ -83,7 +83,7 @@ class DictionarySearchStore(BaseStore):
 		pipeline = self.r.pipeline()
 		pipeline.lrem(alphabet.processing_name(), -1, key_value.to_value())
 		key_value.last_retrieved = config_utils.current_time_millis()
-		pipeline.rpush(alphabet.name, key_value.to_value())
+		pipeline.lpush(alphabet.name, key_value.to_value())
 		return pipeline.execute()
 
 	def put(self, key_value):

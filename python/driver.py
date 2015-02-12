@@ -24,5 +24,5 @@ if __name__ == '__main__':
 
 	c = WebStoreDiscoverer(d)
 
-	c.run()
-	c.run()
+	while True:
+		c.run()
