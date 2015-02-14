@@ -19,6 +19,8 @@ class AlphabetType(Enum):
 		"""The name to use for a separate processing list in Redis."""
 		return '_'.join((self.name, 'processing'))
 
+	def lock_prefix(self):
+		return ':'.join((self.name, 'lock'))
 
 class DictionaryAttackKeyValue:
 	"""Represent an alphabet, a phrase (or letter), and a timestamp for

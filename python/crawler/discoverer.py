@@ -127,7 +127,7 @@ class WebStoreDiscoverer:
 
 				# Add app_id with timestamp of when it was
 				# discovered. If already exists, it is NOT updated.
-				pipe.hsetnx(list_name, app_id, config_utils.current_time_millis())
+				pipe.hsetnx(list_name, app_id, 0)
 				logger.info('Queued pipelined put: %s, %s' % (list_name, app_id))
 
 			return pipe.execute()
