@@ -140,25 +140,25 @@ class WebStoreDiscoverer:
 		to search the Chrome Web Store, and then will return it to the
 		queue when it is done.
 		"""
-		self.dak = self.__get_next_dak(self.alphabets[0])
+		try:
+			self.dak = self.__get_next_dak(self.alphabets[0])
 
-		token_r = 0
-		while not token_r or token_r < 900:
-			url, data = self.build_crawl_url(self.dak)
-			response = self.post_request(url, data)
+			token_r = 0
+			while not token_r or token_r < 900:
+				url, data = self.build_crawl_url(self.dak)
+				response = self.post_request(url, data)
 
-			parse_result = self.parser.parse(response)
-			self.record_new_app_ids(parse_result.app_meta)
-			self.url_params['token'] = '@'.join(parse_result.token)
-			logger.info('Next token: %s' % self.url_params['token'])
-			try:
-				token_r = int(parse_result.token[1])
-			except ValueError:
-				logger.info('Possibly reached end of results because could not parse token')
-				break
-			time.sleep(3)
-
-
-		if self.dak:
-			self.reset_url_params()
-			self.__return_dak(self.dak)
+				parse_result = self.parser.parse(response)
+				self.record_new_app_ids(parse_result.app_meta)
+				self.url_params['token'] = '@'.join(parse_result.token)
+				logger.info('Next token: %s' % self.url_params['token'])
+				try:
+					token_r = int(parse_result.token[1])
+				except ValueError:
+					logger.info('Possibly reached end of results because could not parse token')
+					break
+				time.sleep(3)
+		finally:
+			if self.dak:
+				self.reset_url_params()
+				self.__return_dak(self.dak)

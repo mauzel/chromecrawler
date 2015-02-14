@@ -74,20 +74,29 @@ class ChromePackageFetcher:
 
 	def release_app_id_lock(self, app_id):
 		"""Release the lock on an app_id."""
+		if not app_id:
+			return
+
 		lock_name = ':'.join((self.alphabet.lock_prefix(), app_id))
 		result = self.db.delete(lock_name)
 		logger.info('Attempted release of lock: %s (result: %s)' % (lock_name, result))
 		return result
 
-	def run(self):
-		# Get an app_id, add to en_US_processing_set (with TTL)
-		# if not already in the set, else get another app_id
-		app_id = self.get_unused_app_id()
-
-		# Fetch data about that app
+	def fetch_app(self, app_id):
 		import time
-		print 'sleeping for 10 secs'
+		print 'sleeping for 10 secs to simulate fetching duration'
 		time.sleep(10)
 
-		# Release lock
-		self.release_app_id_lock(app_id)
+	def run(self):
+		app_id = None
+		try:
+			# Get an app_id, add to en_US_processing_set (with TTL)
+			# if not already in the set, else get another app_id
+			app_id = self.get_unused_app_id()
+
+			# Fetch data about that app
+			self.fetch_app(app_id)
+
+			# Release lock
+		finally:
+			self.release_app_id_lock(app_id)
