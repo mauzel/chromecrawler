@@ -22,6 +22,9 @@ class AlphabetType(Enum):
 	def lock_prefix(self):
 		return ':'.join((self.name, 'lock'))
 
+	def hyphenated(self):
+		return self.name.replace('_', '-')
+
 class DictionaryAttackKeyValue:
 	"""Represent an alphabet, a phrase (or letter), and a timestamp for
 	when this key-value was last collected/fetcher.

@@ -14,20 +14,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-HTTP_HEADERS = {
-	'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-	'accept-encoding': '',
-	'accept-language': 'en-US,en;q=0.8,ja;q=0.6,ko;q=0.4',
-	'dnt': '1',
-	'user-agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.93 Safari/537.36',
-	'x-same-domain': '1',
-	'origin': 'https://chrome.google.com',
-	'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
-	'referer': 'https://chrome.google.com/webstore/search/a?_feature=free&_category=apps',
-	'dnt': '1',
-	'data': 'login=&'
-}
-
 class WebStoreParseResult:
 	"""Represents the result of parsing a Chrome Web Store
 	search page.
@@ -111,7 +97,7 @@ class WebStoreDiscoverer:
 
 	def post_request(self, url, data):
 		"""Simple wrapper to POST (url, data). Returns response."""
-		request = urllib2.Request(url, data, headers=HTTP_HEADERS)
+		request = urllib2.Request(url, data, headers=config_utils.HTTP_HEADERS)
 		return urllib2.urlopen(request)
 
 	def record_new_app_ids(self, app_meta):
@@ -140,25 +126,25 @@ class WebStoreDiscoverer:
 		to search the Chrome Web Store, and then will return it to the
 		queue when it is done.
 		"""
-		self.dak = self.__get_next_dak(self.alphabets[0])
+		try:
+			self.dak = self.__get_next_dak(self.alphabets[0])
 
-		token_r = 0
-		while not token_r or token_r < 900:
-			url, data = self.build_crawl_url(self.dak)
-			response = self.post_request(url, data)
+			token_r = 0
+			while not token_r or token_r < 900:
+				url, data = self.build_crawl_url(self.dak)
+				response = self.post_request(url, data)
 
-			parse_result = self.parser.parse(response)
-			self.record_new_app_ids(parse_result.app_meta)
-			self.url_params['token'] = '@'.join(parse_result.token)
-			logger.info('Next token: %s' % self.url_params['token'])
-			try:
-				token_r = int(parse_result.token[1])
-			except ValueError:
-				logger.info('Possibly reached end of results because could not parse token')
-				break
-			time.sleep(3)
-
-
-		if self.dak:
-			self.reset_url_params()
-			self.__return_dak(self.dak)
+				parse_result = self.parser.parse(response)
+				self.record_new_app_ids(parse_result.app_meta)
+				self.url_params['token'] = '@'.join(parse_result.token)
+				logger.info('Next token: %s' % self.url_params['token'])
+				try:
+					token_r = int(parse_result.token[1])
+				except ValueError:
+					logger.info('Possibly reached end of results because could not parse token')
+					break
+				time.sleep(3)
+		finally:
+			if self.dak:
+				self.reset_url_params()
+				self.__return_dak(self.dak)
