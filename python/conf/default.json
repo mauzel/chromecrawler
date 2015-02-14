@@ -1,5 +1,6 @@
 {
     "crawl_point": "https://chrome.google.com/webstore/ajax/item",
+    "fetch_point": "http://clients2.google.com/service/update2/crx",
     "dictionary_config": {
         "host": "localhost",
         "port": "6379",

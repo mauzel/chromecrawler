@@ -3,6 +3,7 @@ import argparse, json, config_utils
 
 from dao.dictsearchstore import DictionarySearchStore, DictionaryAttackKeyValue
 from crawler.discoverer import *
+from crawler.fetcher import *
 
 
 parser = argparse.ArgumentParser(description='driver for testing')
@@ -23,8 +24,11 @@ if __name__ == '__main__':
 	#d.release(dak)
 	app_r = config_utils.redis_from_config(config, key='app_meta_config')
 	c = WebStoreDiscoverer(d, url=config['crawl_point'], db=app_r)
+	f = ChromePackageFetcher(url=config['fetch_point'], db=app_r)
 
 	for x in xrange(100):
-		c.run()
+		#c.run()
+		f.run()
+
 		import time
 		time.sleep(3)

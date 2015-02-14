@@ -4,6 +4,7 @@ sys.path.append("..")
 import urllib2, collections, urlparse, demjson
 from urllib import urlencode
 import time
+import config_utils
 
 from dao.dictsearchstore import *
 import logging
@@ -114,23 +115,22 @@ class WebStoreDiscoverer:
 		return urllib2.urlopen(request)
 
 	def record_new_app_ids(self, app_meta):
-		"""Store the app ids we've crawled into a persistent set.
+		"""Store the app ids we've crawled into a persistent hash.
 
 		The point of this is to keep track of how many unique
 		app ids we've come across.
 		"""
 		# TODO: Replace with abstracted out AppKeyValueStore
-		pipe = self.db.pipeline()
+		with self.db.pipeline() as pipe:
+			for app_id in app_meta.keys():
+				list_name = self.dak.alphabet.name
 
-		for app_id in app_meta.keys():
-			list_name = self.dak.alphabet.name
-			pipe.sadd(list_name, app_id)
-			logger.info('Queued pipelined put: %s, %s' % (list_name, app_id))
+				# Add app_id with timestamp of when it was
+				# discovered. If already exists, it is NOT updated.
+				pipe.hsetnx(list_name, app_id, 0)
+				logger.info('Queued pipelined put: %s, %s' % (list_name, app_id))
 
-		return pipe.execute()
-
-	def fetch_app_packages(self, app_meta):
-		pass
+			return pipe.execute()
 
 	def run(self):
 		"""Handles delegation of work to crawl the web store for
@@ -149,7 +149,6 @@ class WebStoreDiscoverer:
 
 			parse_result = self.parser.parse(response)
 			self.record_new_app_ids(parse_result.app_meta)
-			self.fetch_app_packages(parse_result.app_meta)
 			self.url_params['token'] = '@'.join(parse_result.token)
 			logger.info('Next token: %s' % self.url_params['token'])
 			try:
