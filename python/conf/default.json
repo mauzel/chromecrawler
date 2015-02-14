@@ -1,6 +1,7 @@
 {
     "crawl_point": "https://chrome.google.com/webstore/ajax/item",
     "fetch_point": "http://clients2.google.com/service/update2/crx",
+    "git_root_dir": "/home/sena/e6118-git/",
     "dictionary_config": {
         "host": "localhost",
         "port": "6379",

@@ -2,6 +2,8 @@ pip:
 	redis
 	enum34
 	hiredis
+	sh
+	shutil
 
 apt:
 	python-dev
