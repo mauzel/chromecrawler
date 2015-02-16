@@ -26,7 +26,8 @@ if __name__ == '__main__':
 	c = WebStoreDiscoverer(d, url=config['crawl_point'], db=app_r)
 
 	git_root_dir = config['git_root_dir']
-	f = ChromePackageFetcher(url=config['fetch_point'], db=app_r, git_dir=git_root_dir)
+	crx_root_dir = config['crx_root_dir']
+	f = ChromePackageFetcher(url=config['fetch_point'], db=app_r, git_dir=git_root_dir, crx_dir=crx_root_dir)
 
 	for x in xrange(100):
 		#c.run()

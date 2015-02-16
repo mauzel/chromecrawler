@@ -2,14 +2,16 @@ import sys, os
 sys.path.append("..")
 
 import collections, shutil
-import config_utils
 import urllib2, collections, demjson
 from urllib import urlencode
-from dao.dictsearchstore import *
 from redis import WatchError
 from tempfile import NamedTemporaryFile
 from lxml import etree
 from bs4 import BeautifulSoup
+import zipfile
+
+import config_utils
+from dao.dictsearchstore import *
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -74,6 +76,14 @@ class ApplicationIdLocker:
 		return result
 
 
+class GitRepositoryHandler:
+	def __init__(self):
+		pass
+
+	def commit(self, dir):
+		logger.info('Committing all changes in: %s' % dir)
+
+
 class ChromePackageFetcher:
 
 	def reset_url_params(self):
@@ -82,11 +92,10 @@ class ChromePackageFetcher:
 			('prodchannel', 'unknown'),
 			('prodversion', '9999.0.9999.0'),
 			('x=id', None),
-			('lang', None),
-			('prodversion', '32')
+			('lang', None)
 		])
 
-	def __init__(self, url, db, git_dir, alphabet=AlphabetType.en_US):
+	def __init__(self, url, db, git_dir, crx_dir, alphabet=AlphabetType.en_US):
 		self.alphabet = alphabet
 		self.db = db
 		self.fetch_point = url
@@ -94,6 +103,8 @@ class ChromePackageFetcher:
 		self.reset_url_params()
 		self.app_id_locker = ApplicationIdLocker(db=db, alphabet=self.alphabet)
 		self.git_dir = git_dir
+		self.crx_dir = crx_dir
+		self.git_handler = GitRepositoryHandler()
 
 	def build_fetch_url(self, app_id):
 		"""Returns download url for the given app_id."""
@@ -114,14 +125,33 @@ class ChromePackageFetcher:
 		local file name to save the response results to.
 		"""
 		filename = response.geturl().split('/')[-1]
-		app_path = os.path.join(self.git_dir, app_id, filename)
+		app_path = os.path.join(self.crx_dir, app_id, filename)
 
 		if not os.path.exists(os.path.dirname(app_path)):
 			os.makedirs(os.path.dirname(app_path))
 		return app_path
 
+	def get_crx_extract_path(self, app_id):
+		"""Get the extraction path for extracting crx to git repo."""
+		return os.path.join(self.git_dir, app_id)
+
+	def extract_crx(self, crx_path, app_id):
+		"""Extract crx at crx_path into the configured git directory
+		for this class.
+
+		Returns the target directory where the crx was extracted.
+		"""
+		with zipfile.ZipFile(crx_path, 'r') as zf:
+			extract_path = self.get_crx_extract_path(app_id)
+			zf.extractall(extract_path)
+			logger.info('Extracted app %s to %s' % (app_id, extract_path))
+			return extract_path
+
 	def fetch_app(self, app_id):
-		"""Downloads the app_id .crx file to a local location."""
+		"""Downloads the app_id .crx file to a local location.
+
+		Return location of crx, and location of extracted files.
+		"""
 		dl_url = self.build_fetch_url(app_id)
 		logger.info('Fetching from url: %s' % dl_url)
 		response = self.get_request(dl_url)
@@ -131,13 +161,13 @@ class ChromePackageFetcher:
 		app_path = self.get_dl_path_from_response(app_id, response)
 
 		with open(app_path, 'wb') as fp:
-			logger.info('Writing .crx to: %s' % app_path)
 			shutil.copyfileobj(response, fp)
-			logger.info('Wrote application to: %s' % fp.name)
+			logger.info('Wrote application crx to: %s' % fp.name)
 
-			import time
-			print 'sleeping for 10 secs to simulate fetching duration'
-			time.sleep(10)
+		return (app_path, self.extract_crx(app_path, app_id))
+		
+
+		
 
 	def run(self):
 		app_id = None
@@ -147,7 +177,13 @@ class ChromePackageFetcher:
 			app_id = self.app_id_locker.set_lock_get_id()
 
 			# Fetch data about that app
-			self.fetch_app(app_id)
+			app_path, extract_path = self.fetch_app(app_id)
+
+			self.git_handler.commit(extract_path)
+
+			import time
+			print 'sleeping for 3 secs to simulate fetching duration'
+			time.sleep(3)
 
 			# Release lock
 		finally:
