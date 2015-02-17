@@ -8,6 +8,8 @@ from urllib import urlencode
 from dao.dictsearchstore import *
 from redis import WatchError
 from tempfile import NamedTemporaryFile
+from lxml import etree
+from bs4 import BeautifulSoup
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -150,3 +152,81 @@ class ChromePackageFetcher:
 			# Release lock
 		finally:
 			self.app_id_locker.unlock()
+
+"""Metadata fetching and storing functionality"""
+
+class MetadataFetcher:
+	
+	baseUrl = "https://chrome.google.com/webstore/detail/"
+
+	def __init__ (self, appId):
+		self.appId = appId
+
+	def generateUrl(self):
+		self.appUrl = self.baseUrl + self.appId	
+
+	def getAppPageSource(self):
+		response = urllib2.urlopen(self.appUrl)
+		self.page_source = response.read()
+
+	def fetchTags(self, metadatastore):
+		tree = etree.HTML(self.page_source)
+		m = tree.xpath("//meta")
+
+		for i in m:
+			if(etree.tostring(i).find("itemprop") != -1):
+				soup = BeautifulSoup(etree.tostring(i))
+				for meta_tag in soup('meta'):
+					if meta_tag['itemprop'] == 'name':
+						metadatastore.name = meta_tag['content']
+					if meta_tag['itemprop'] == 'url':
+						metadatastore.url = meta_tag['content']
+					if meta_tag['itemprop'] == 'version':
+						metadatastore.version = meta_tag['content']
+					if meta_tag['itemprop'] == 'price':
+						metadatastore.price = meta_tag['content'][1:]
+					if meta_tag['itemprop'] == 'interactionCount':
+						
+						if(meta_tag['content'].find("UserDownloads") != -1):
+						 	metadatastore.downloads = meta_tag['content'][14:]
+						else:
+						 	metadatastore.downloads = 0
+
+					if meta_tag['itemprop'] == 'operatingSystems':
+						metadatastore.os = meta_tag['content']
+					if meta_tag['itemprop'] == 'ratingValue':
+						metadatastore.ratingValue = meta_tag['content']
+					if meta_tag['itemprop'] == 'ratingCount':
+						metadatastore.ratingCount = meta_tag['content']
+					if meta_tag['itemprop'] == 'priceCurrency':
+						metadatastore.priceCurrency = meta_tag['content']	
+
+
+class MetadataStore:
+	
+	"""Contains name, url, version, price, priceCurrency, downloads, os, ratingValue, ratingCount and priceCurrency"""
+
+	def __init__(self, app_id):
+		self.app_id = app_id
+		mdf = MetadataFetcher(app_id)
+		mdf.generateUrl()
+		mdf.getAppPageSource()
+		mdf.fetchTags(self)
+
+	def printAll(self):
+		print self.name
+		print self.url
+		print self.version
+		print self.price
+		print self.downloads
+		print self.os
+		print self.ratingValue
+		print self.ratingCount
+		print self.priceCurrency
+
+
+if __name__ == '__main__':
+
+	tempAppId = "ifpbhmjbfiogpipemadffnijpbcdfkmp"
+	mds = MetadataStore(tempAppId)	
+	mds.printAll()
