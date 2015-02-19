@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, traceback
 sys.path.append("..")
 
 import collections, shutil
@@ -9,6 +9,7 @@ from tempfile import NamedTemporaryFile
 from lxml import etree
 from bs4 import BeautifulSoup
 import zipfile
+from sh import git, ErrorReturnCode_1
 
 import config_utils
 from dao.dictsearchstore import *
@@ -18,6 +19,16 @@ logger = logging.getLogger(__name__)
 
 
 class ApplicationIdLocker:
+	"""Handles locking/unlocking of app_ids so that multiple
+	fetchers don't fetch the same app_id.
+
+	Invokers want to use:
+		- set_lock_get_id()
+		- unlock()
+
+	You definitely want to put unlock() in a finally.
+	"""
+
 	def __init__(self, db, alphabet=AlphabetType.en_US):
 		self.alphabet = alphabet
 		self.db = db
@@ -77,15 +88,43 @@ class ApplicationIdLocker:
 
 
 class GitRepositoryHandler:
+	git_user = "chromecrawler"
+	git_email = "test@test.com"
+
 	def __init__(self):
 		pass
 
+	def init_repo(self, dir):
+		os.chdir(dir)
+		git.init()
+		logger.debug("Invoked git init for %s" % dir)
+
+	def set_config(self):
+		git.config("user.name %s" % self.git_user)
+		git.config("user.email %s" % self.git_email)
+
 	def commit(self, metadata, dir):
-		logger.info(metadata.print_all())
-		logger.info('Committing all changes in: %s' % dir)
+		os.chdir(dir)
+		logger.info(metadata.to_pretty_value())
+		git.add("--all")
+		try:
+			git.commit("-m %s" % metadata.to_pretty_value())
+			logger.info('Committed all changes in: %s' % dir)
+		except ErrorReturnCode_1:
+			if 'nothing to commit' in traceback.format_exc():
+				logger.info('Nothing to commit')
+			else:
+				logger.error(traceback.format_exc())
 
 
 class ChromePackageFetcher:
+	"""Class that abstracts away the act of:
+
+	- Getting the next app_id from the db
+	- Fetching the crx for the app_id
+	- Fetching metadata for the app_id
+	- Committing the metadata and extracted app to git dir
+	"""
 
 	def reset_url_params(self):
 		self.url_params = collections.OrderedDict([
@@ -181,6 +220,7 @@ class ChromePackageFetcher:
 			metadata = self.metadata_fetcher.fetch_tags(app_id)
 
 			# Commit to git repo
+			self.git_handler.init_repo(extract_path)
 			self.git_handler.commit(metadata, extract_path)
 
 			import time
@@ -256,6 +296,13 @@ class AppMetadata:
 		self.rating_count = None
 		self.price_currency = None
 
+	def to_pretty_value(self, indent=4, sort_keys=True):
+		instance_vars = vars(self)
+		instance_vars['__type__'] = 'AppMetadata'
+
+		return json.dumps(instance_vars, indent=indent, sort_keys=sort_keys)
+
 	def print_all(self):
+		"""Useful for debugging."""
 		import pprint
 		pprint.pprint(vars(self))
