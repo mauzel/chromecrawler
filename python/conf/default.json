@@ -2,6 +2,7 @@
     "crawl_point": "https://chrome.google.com/webstore/ajax/item",
     "fetch_point": "http://clients2.google.com/service/update2/crx",
     "detail_point": "https://chrome.google.com/webstore/ajax/detail",
+    "detail_page": "https://chrome.google.com/webstore/detail/",
     "git_root_dir": "/home/sena/e6118-git/",
     "crx_root_dir": "/home/sena/e6118-crx/",
     "dictionary_config": {

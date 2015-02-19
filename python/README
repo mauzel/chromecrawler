@@ -4,7 +4,11 @@ pip:
 	hiredis
 	sh
 	shutil
+	lxml
+	beautifulsoup4
 
 apt:
 	python-dev
 	redis-server
+	ibxml2-dev
+	libxslt-dev

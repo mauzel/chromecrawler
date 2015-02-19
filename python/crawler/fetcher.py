@@ -80,7 +80,8 @@ class GitRepositoryHandler:
 	def __init__(self):
 		pass
 
-	def commit(self, dir):
+	def commit(self, metadata, dir):
+		logger.info(metadata.print_all())
 		logger.info('Committing all changes in: %s' % dir)
 
 
@@ -95,16 +96,16 @@ class ChromePackageFetcher:
 			('lang', None)
 		])
 
-	def __init__(self, url, db, git_dir, crx_dir, alphabet=AlphabetType.en_US):
+	def __init__(self, url, db, git_dir, crx_dir, metadata_fetcher, alphabet=AlphabetType.en_US):
 		self.alphabet = alphabet
 		self.db = db
 		self.fetch_point = url
-		logger.info('Fetch point: %s' % self.fetch_point)
 		self.reset_url_params()
 		self.app_id_locker = ApplicationIdLocker(db=db, alphabet=self.alphabet)
 		self.git_dir = git_dir
 		self.crx_dir = crx_dir
 		self.git_handler = GitRepositoryHandler()
+		self.metadata_fetcher = metadata_fetcher
 
 	def build_fetch_url(self, app_id):
 		"""Returns download url for the given app_id."""
@@ -165,9 +166,6 @@ class ChromePackageFetcher:
 			logger.info('Wrote application crx to: %s' % fp.name)
 
 		return (app_path, self.extract_crx(app_path, app_id))
-		
-
-		
 
 	def run(self):
 		app_id = None
@@ -176,10 +174,14 @@ class ChromePackageFetcher:
 			# if not already in the set, else get another app_id
 			app_id = self.app_id_locker.set_lock_get_id()
 
-			# Fetch data about that app
+			# Fetch app
 			app_path, extract_path = self.fetch_app(app_id)
 
-			self.git_handler.commit(extract_path)
+			# Fetch metadata
+			metadata = self.metadata_fetcher.fetch_tags(app_id)
+
+			# Commit to git repo
+			self.git_handler.commit(metadata, extract_path)
 
 			import time
 			print 'sleeping for 3 secs to simulate fetching duration'
@@ -189,80 +191,62 @@ class ChromePackageFetcher:
 		finally:
 			self.app_id_locker.unlock()
 
-"""Metadata fetching and storing functionality"""
 
 class MetadataFetcher:
-	
-	baseUrl = "https://chrome.google.com/webstore/detail/"
+	"""Metadata fetching and storing functionality"""
 
-	def __init__ (self, appId):
-		self.appId = appId
+	def __init__ (self, base_url):
+		self.base_url = base_url
 
-	def generateUrl(self):
-		self.appUrl = self.baseUrl + self.appId	
+	def generate_url(self, app_id):
+		return self.base_url + app_id
 
-	def getAppPageSource(self):
-		response = urllib2.urlopen(self.appUrl)
-		self.page_source = response.read()
+	def get_app_page(self, app_id):
+		response = urllib2.urlopen(self.generate_url(app_id))
+		return response.read()
 
-	def fetchTags(self, metadatastore):
-		tree = etree.HTML(self.page_source)
+	def fetch_tags(self, app_id):
+		tree = etree.HTML(self.get_app_page(app_id))
 		m = tree.xpath("//meta")
+		metadata = AppMetadata(app_id)
 
 		for i in m:
-			if(etree.tostring(i).find("itemprop") != -1):
+			if etree.tostring(i).find("itemprop") != -1:
 				soup = BeautifulSoup(etree.tostring(i))
 				for meta_tag in soup('meta'):
 					if meta_tag['itemprop'] == 'name':
-						metadatastore.name = meta_tag['content']
-					if meta_tag['itemprop'] == 'url':
-						metadatastore.url = meta_tag['content']
-					if meta_tag['itemprop'] == 'version':
-						metadatastore.version = meta_tag['content']
-					if meta_tag['itemprop'] == 'price':
-						metadatastore.price = meta_tag['content'][1:]
-					if meta_tag['itemprop'] == 'interactionCount':
-						
+						metadata.name = meta_tag['content']
+					elif meta_tag['itemprop'] == 'url':
+						metadata.url = meta_tag['content']
+					elif meta_tag['itemprop'] == 'version':
+						metadata.version = meta_tag['content']
+					elif meta_tag['itemprop'] == 'price':
+						metadata.price = meta_tag['content'][1:]
+					elif meta_tag['itemprop'] == 'interactionCount':
 						if(meta_tag['content'].find("UserDownloads") != -1):
-						 	metadatastore.downloads = meta_tag['content'][14:]
+						 	metadata.downloads = meta_tag['content'][14:]
 						else:
-						 	metadatastore.downloads = 0
+						 	metadata.downloads = 0
 
-					if meta_tag['itemprop'] == 'operatingSystems':
-						metadatastore.os = meta_tag['content']
-					if meta_tag['itemprop'] == 'ratingValue':
-						metadatastore.ratingValue = meta_tag['content']
-					if meta_tag['itemprop'] == 'ratingCount':
-						metadatastore.ratingCount = meta_tag['content']
-					if meta_tag['itemprop'] == 'priceCurrency':
-						metadatastore.priceCurrency = meta_tag['content']	
+					elif meta_tag['itemprop'] == 'operatingSystems':
+						metadata.os = meta_tag['content']
+					elif meta_tag['itemprop'] == 'ratingValue':
+						metadata.ratingValue = meta_tag['content']
+					elif meta_tag['itemprop'] == 'ratingCount':
+						metadata.ratingCount = meta_tag['content']
+					elif meta_tag['itemprop'] == 'priceCurrency':
+						metadata.priceCurrency = meta_tag['content']
+		return metadata
 
 
-class MetadataStore:
-	
-	"""Contains name, url, version, price, priceCurrency, downloads, os, ratingValue, ratingCount and priceCurrency"""
+class AppMetadata:
+	"""Contains name, url, version, price, priceCurrency, 
+	downloads, os, ratingValue, ratingCount and priceCurrency.
+	"""
 
 	def __init__(self, app_id):
 		self.app_id = app_id
-		mdf = MetadataFetcher(app_id)
-		mdf.generateUrl()
-		mdf.getAppPageSource()
-		mdf.fetchTags(self)
 
-	def printAll(self):
-		print self.name
-		print self.url
-		print self.version
-		print self.price
-		print self.downloads
-		print self.os
-		print self.ratingValue
-		print self.ratingCount
-		print self.priceCurrency
-
-
-if __name__ == '__main__':
-
-	tempAppId = "ifpbhmjbfiogpipemadffnijpbcdfkmp"
-	mds = MetadataStore(tempAppId)	
-	mds.printAll()
+	def print_all(self):
+		import pprint
+		pprint.pprint(vars(self))
