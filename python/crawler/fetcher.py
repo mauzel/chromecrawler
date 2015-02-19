@@ -1,21 +1,34 @@
-import sys, os
+import sys, os, traceback
 sys.path.append("..")
 
 import collections, shutil
-import config_utils
 import urllib2, collections, demjson
 from urllib import urlencode
-from dao.dictsearchstore import *
 from redis import WatchError
 from tempfile import NamedTemporaryFile
 from lxml import etree
 from bs4 import BeautifulSoup
+import zipfile
+from sh import git, ErrorReturnCode_1
+
+import config_utils
+from dao.dictsearchstore import *
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 class ApplicationIdLocker:
+	"""Handles locking/unlocking of app_ids so that multiple
+	fetchers don't fetch the same app_id.
+
+	Invokers want to use:
+		- set_lock_get_id()
+		- unlock()
+
+	You definitely want to put unlock() in a finally.
+	"""
+
 	def __init__(self, db, alphabet=AlphabetType.en_US):
 		self.alphabet = alphabet
 		self.db = db
@@ -74,7 +87,44 @@ class ApplicationIdLocker:
 		return result
 
 
+class GitRepositoryHandler:
+	git_user = "chromecrawler"
+	git_email = "test@test.com"
+
+	def __init__(self):
+		pass
+
+	def init_repo(self, dir):
+		os.chdir(dir)
+		git.init()
+		logger.debug("Invoked git init for %s" % dir)
+
+	def set_config(self):
+		git.config("user.name %s" % self.git_user)
+		git.config("user.email %s" % self.git_email)
+
+	def commit(self, metadata, dir):
+		os.chdir(dir)
+		logger.info(metadata.to_pretty_value())
+		git.add("--all")
+		try:
+			git.commit("-m %s" % metadata.to_pretty_value())
+			logger.info('Committed all changes in: %s' % dir)
+		except ErrorReturnCode_1:
+			if 'nothing to commit' in traceback.format_exc():
+				logger.info('Nothing to commit')
+			else:
+				logger.error(traceback.format_exc())
+
+
 class ChromePackageFetcher:
+	"""Class that abstracts away the act of:
+
+	- Getting the next app_id from the db
+	- Fetching the crx for the app_id
+	- Fetching metadata for the app_id
+	- Committing the metadata and extracted app to git dir
+	"""
 
 	def reset_url_params(self):
 		self.url_params = collections.OrderedDict([
@@ -82,18 +132,19 @@ class ChromePackageFetcher:
 			('prodchannel', 'unknown'),
 			('prodversion', '9999.0.9999.0'),
 			('x=id', None),
-			('lang', None),
-			('prodversion', '32')
+			('lang', None)
 		])
 
-	def __init__(self, url, db, git_dir, alphabet=AlphabetType.en_US):
+	def __init__(self, url, db, git_dir, crx_dir, metadata_fetcher, alphabet=AlphabetType.en_US):
 		self.alphabet = alphabet
 		self.db = db
 		self.fetch_point = url
-		logger.info('Fetch point: %s' % self.fetch_point)
 		self.reset_url_params()
 		self.app_id_locker = ApplicationIdLocker(db=db, alphabet=self.alphabet)
 		self.git_dir = git_dir
+		self.crx_dir = crx_dir
+		self.git_handler = GitRepositoryHandler()
+		self.metadata_fetcher = metadata_fetcher
 
 	def build_fetch_url(self, app_id):
 		"""Returns download url for the given app_id."""
@@ -114,14 +165,33 @@ class ChromePackageFetcher:
 		local file name to save the response results to.
 		"""
 		filename = response.geturl().split('/')[-1]
-		app_path = os.path.join(self.git_dir, app_id, filename)
+		app_path = os.path.join(self.crx_dir, app_id, filename)
 
 		if not os.path.exists(os.path.dirname(app_path)):
 			os.makedirs(os.path.dirname(app_path))
 		return app_path
 
+	def get_crx_extract_path(self, app_id):
+		"""Get the extraction path for extracting crx to git repo."""
+		return os.path.join(self.git_dir, app_id)
+
+	def extract_crx(self, crx_path, app_id):
+		"""Extract crx at crx_path into the configured git directory
+		for this class.
+
+		Returns the target directory where the crx was extracted.
+		"""
+		with zipfile.ZipFile(crx_path, 'r') as zf:
+			extract_path = self.get_crx_extract_path(app_id)
+			zf.extractall(extract_path)
+			logger.info('Extracted app %s to %s' % (app_id, extract_path))
+			return extract_path
+
 	def fetch_app(self, app_id):
-		"""Downloads the app_id .crx file to a local location."""
+		"""Downloads the app_id .crx file to a local location.
+
+		Return location of crx, and location of extracted files.
+		"""
 		dl_url = self.build_fetch_url(app_id)
 		logger.info('Fetching from url: %s' % dl_url)
 		response = self.get_request(dl_url)
@@ -131,13 +201,10 @@ class ChromePackageFetcher:
 		app_path = self.get_dl_path_from_response(app_id, response)
 
 		with open(app_path, 'wb') as fp:
-			logger.info('Writing .crx to: %s' % app_path)
 			shutil.copyfileobj(response, fp)
-			logger.info('Wrote application to: %s' % fp.name)
+			logger.info('Wrote application crx to: %s' % fp.name)
 
-			import time
-			print 'sleeping for 10 secs to simulate fetching duration'
-			time.sleep(10)
+		return (app_path, self.extract_crx(app_path, app_id))
 
 	def run(self):
 		app_id = None
@@ -146,87 +213,96 @@ class ChromePackageFetcher:
 			# if not already in the set, else get another app_id
 			app_id = self.app_id_locker.set_lock_get_id()
 
-			# Fetch data about that app
-			self.fetch_app(app_id)
+			# Fetch app
+			app_path, extract_path = self.fetch_app(app_id)
+
+			# Fetch metadata
+			metadata = self.metadata_fetcher.fetch_tags(app_id)
+
+			# Commit to git repo
+			self.git_handler.init_repo(extract_path)
+			self.git_handler.commit(metadata, extract_path)
+
+			import time
+			print 'sleeping for 3 secs to simulate fetching duration'
+			time.sleep(3)
 
 			# Release lock
 		finally:
 			self.app_id_locker.unlock()
 
-"""Metadata fetching and storing functionality"""
 
 class MetadataFetcher:
-	
-	baseUrl = "https://chrome.google.com/webstore/detail/"
+	"""Metadata fetching and storing functionality"""
 
-	def __init__ (self, appId):
-		self.appId = appId
+	def __init__ (self, base_url):
+		self.base_url = base_url
 
-	def generateUrl(self):
-		self.appUrl = self.baseUrl + self.appId	
+	def generate_url(self, app_id):
+		return self.base_url + app_id
 
-	def getAppPageSource(self):
-		response = urllib2.urlopen(self.appUrl)
-		self.page_source = response.read()
+	def get_app_page(self, app_id):
+		response = urllib2.urlopen(self.generate_url(app_id))
+		return response.read()
 
-	def fetchTags(self, metadatastore):
-		tree = etree.HTML(self.page_source)
+	def fetch_tags(self, app_id):
+		tree = etree.HTML(self.get_app_page(app_id))
 		m = tree.xpath("//meta")
+		metadata = AppMetadata(app_id)
 
 		for i in m:
-			if(etree.tostring(i).find("itemprop") != -1):
+			if etree.tostring(i).find("itemprop") != -1:
 				soup = BeautifulSoup(etree.tostring(i))
 				for meta_tag in soup('meta'):
 					if meta_tag['itemprop'] == 'name':
-						metadatastore.name = meta_tag['content']
-					if meta_tag['itemprop'] == 'url':
-						metadatastore.url = meta_tag['content']
-					if meta_tag['itemprop'] == 'version':
-						metadatastore.version = meta_tag['content']
-					if meta_tag['itemprop'] == 'price':
-						metadatastore.price = meta_tag['content'][1:]
-					if meta_tag['itemprop'] == 'interactionCount':
-						
+						metadata.name = meta_tag['content']
+					elif meta_tag['itemprop'] == 'url':
+						metadata.url = meta_tag['content']
+					elif meta_tag['itemprop'] == 'version':
+						metadata.version = meta_tag['content']
+					elif meta_tag['itemprop'] == 'price':
+						metadata.price = meta_tag['content'][1:]
+					elif meta_tag['itemprop'] == 'interactionCount':
 						if(meta_tag['content'].find("UserDownloads") != -1):
-						 	metadatastore.downloads = meta_tag['content'][14:]
+						 	metadata.downloads = meta_tag['content'][14:]
 						else:
-						 	metadatastore.downloads = 0
+						 	metadata.downloads = 0
 
-					if meta_tag['itemprop'] == 'operatingSystems':
-						metadatastore.os = meta_tag['content']
-					if meta_tag['itemprop'] == 'ratingValue':
-						metadatastore.ratingValue = meta_tag['content']
-					if meta_tag['itemprop'] == 'ratingCount':
-						metadatastore.ratingCount = meta_tag['content']
-					if meta_tag['itemprop'] == 'priceCurrency':
-						metadatastore.priceCurrency = meta_tag['content']	
+					elif meta_tag['itemprop'] == 'operatingSystems':
+						metadata.os = meta_tag['content']
+					elif meta_tag['itemprop'] == 'ratingValue':
+						metadata.rating_value = meta_tag['content']
+					elif meta_tag['itemprop'] == 'ratingCount':
+						metadata.rating_count = meta_tag['content']
+					elif meta_tag['itemprop'] == 'priceCurrency':
+						metadata.price_currency = meta_tag['content']
+		return metadata
 
 
-class MetadataStore:
-	
-	"""Contains name, url, version, price, priceCurrency, downloads, os, ratingValue, ratingCount and priceCurrency"""
+class AppMetadata:
+	"""Contains name, url, version, price, priceCurrency, 
+	downloads, os, ratingValue, ratingCount and priceCurrency.
+	"""
 
 	def __init__(self, app_id):
 		self.app_id = app_id
-		mdf = MetadataFetcher(app_id)
-		mdf.generateUrl()
-		mdf.getAppPageSource()
-		mdf.fetchTags(self)
+		self.name = None
+		self.url = None
+		self.version = None
+		self.price = None
+		self.downloads = None
+		self.os = None
+		self.rating_value = None
+		self.rating_count = None
+		self.price_currency = None
 
-	def printAll(self):
-		print self.name
-		print self.url
-		print self.version
-		print self.price
-		print self.downloads
-		print self.os
-		print self.ratingValue
-		print self.ratingCount
-		print self.priceCurrency
+	def to_pretty_value(self, indent=4, sort_keys=True):
+		instance_vars = vars(self)
+		instance_vars['__type__'] = 'AppMetadata'
 
+		return json.dumps(instance_vars, indent=indent, sort_keys=sort_keys)
 
-if __name__ == '__main__':
-
-	tempAppId = "ifpbhmjbfiogpipemadffnijpbcdfkmp"
-	mds = MetadataStore(tempAppId)	
-	mds.printAll()
+	def print_all(self):
+		"""Useful for debugging."""
+		import pprint
+		pprint.pprint(vars(self))
