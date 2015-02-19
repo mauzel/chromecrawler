@@ -231,11 +231,11 @@ class MetadataFetcher:
 					elif meta_tag['itemprop'] == 'operatingSystems':
 						metadata.os = meta_tag['content']
 					elif meta_tag['itemprop'] == 'ratingValue':
-						metadata.ratingValue = meta_tag['content']
+						metadata.rating_value = meta_tag['content']
 					elif meta_tag['itemprop'] == 'ratingCount':
-						metadata.ratingCount = meta_tag['content']
+						metadata.rating_count = meta_tag['content']
 					elif meta_tag['itemprop'] == 'priceCurrency':
-						metadata.priceCurrency = meta_tag['content']
+						metadata.price_currency = meta_tag['content']
 		return metadata
 
 
@@ -246,6 +246,15 @@ class AppMetadata:
 
 	def __init__(self, app_id):
 		self.app_id = app_id
+		self.name = None
+		self.url = None
+		self.version = None
+		self.price = None
+		self.downloads = None
+		self.os = None
+		self.rating_value = None
+		self.rating_count = None
+		self.price_currency = None
 
 	def print_all(self):
 		import pprint
