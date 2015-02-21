@@ -6,9 +6,18 @@ pip:
 	shutil
 	lxml
 	beautifulsoup4
+	slimit (JS parser)
 
 apt:
 	python-dev
 	redis-server
 	ibxml2-dev
 	libxslt-dev
+
+
+Analyzer:
+
+There are two distinctions to be aware of:
+
+ - Hosted Apps - Identified by the "launch" and "web_url" properties in manifest.json.
+ - Packaged Apps

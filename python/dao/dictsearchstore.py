@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 from basestore import BaseStore
 import redis, json
 import config_utils
