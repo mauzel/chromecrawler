@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import sys
 sys.path.append("..")
 
@@ -63,7 +66,7 @@ class WebStoreDiscoverer:
 			('mce', 'rlb,svp,atf,c3d,ncr,ctm,ac,hot,fcf'),
 			('count', '52'),
 			('token', ''),
-			('category', 'apps'),
+			('category', 'extensions'),
 			('searchTerm', ''),
 			('sortBy', '0'),
 			('container', 'CHROME'),
