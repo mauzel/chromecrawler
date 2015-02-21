@@ -6,6 +6,7 @@ pip:
 	shutil
 	lxml
 	beautifulsoup4
+	slimit (JS parser)
 
 apt:
 	python-dev

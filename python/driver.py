@@ -4,6 +4,7 @@ import argparse, json, config_utils
 from dao.dictsearchstore import DictionarySearchStore, DictionaryAttackKeyValue
 from crawler.discoverer import *
 from crawler.fetcher import *
+from analyzer.single_analyzer import *
 
 
 parser = argparse.ArgumentParser(description='driver for testing')
@@ -31,9 +32,13 @@ if __name__ == '__main__':
 	crx_root_dir = config['crx_root_dir']
 	f = ChromePackageFetcher(url=config['fetch_point'], db=app_r, git_dir=git_root_dir, crx_dir=crx_root_dir, metadata_fetcher=m)
 
-	for x in xrange(100):
-		#c.run()
-		f.run()
+	sa = LeastPrivilegeAnalyzer(db=app_r, git_dir=git_root_dir)
 
-		import time
-		time.sleep(1)
+	sa.run()
+
+	#for x in xrange(100):
+		#c.run()
+		#f.run()
+
+		#import time
+		#time.sleep(1)
