@@ -12,6 +12,7 @@ import config_utils
 from dao.dictsearchstore import *
 from dao.reportstore import *
 from synchronization.locking import *
+from reports.single_reports import *
 
 
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +31,9 @@ class LeastPrivilegeAnalyzer:
 		return os.path.join(self.git_dir, app_id)
 
 	def __extract_permissions(self, app_dir):
+		"""Get the permissions part of the manifest.json in app_dir as
+		a Python dictionary.
+		"""
 		with open(os.path.join(app_dir, 'manifest.json'), 'r') as f:
 			manifest = json.loads(f.read())
 			if 'permissions' in manifest:
@@ -37,6 +41,26 @@ class LeastPrivilegeAnalyzer:
 			else:
 				logger.info('manifest.json does not have permissions')
 				return None
+
+	def find_web_url(self, app_dir):
+		"""Checks for the 'web_url' property in the manifest.json
+		file. The presence of this property indicates whether the
+		given app is a hosted app or not.
+
+		A hosted app is basically a web app hosted by the app creator,
+		and is basically telling the Chrome app to run the person's web
+		app within your browser.
+		"""
+		with open(os.path.join(app_dir, 'manifest.json'), 'r') as f:
+			mani = json.loads(f.read())
+			if 'app' in mani and 'launch' in mani['app']:
+				launch = mani['app']['launch']
+				if 'web_url' in launch:
+					logger.info('manifest.json web_url: %s' % launch['web_url'])
+					return launch['web_url']
+
+		logger.info('manifest.json does not have web_url')
+		return None
 
 	def scan_js(self, js_fn):
 		"""V. Aravind and M Sethumadhavan, p.270 describe
@@ -46,34 +70,55 @@ class LeastPrivilegeAnalyzer:
 
 			chrome.<permission>.<name>
 
-		Then comparing the results of this with the permissions
-		requested in the manifest.json.
+		Which we put into the set that is returned by this function.
+
+		LATER (i.e. not in this function), we compare the results 
+		of this with the permissions requested in the manifest.json.
 		"""
 		used_permissions = set()
+
+		# We do not know if Google validates all JS submissions.
+		# So use a lexer instead of a parser.
 		l = Lexer()
 
 		with open(js_fn, 'r') as f:
 			l.input(f.read())
-			logger.info(js_fn)
 			it = l.__iter__()
 
 			for token in l:
-				if token.type == 'ID' and token.value.startswith('chrome'):
+				if token.type == 'ID' and token.value == 'chrome':
 					permission = None
 					name = None
 					if it.next().type == 'PERIOD':
 						permission = it.next()
 					if it.next().type == 'PERIOD':
 						name = it.next()
-					used_permissions.add('.'.join(filter(None, (token.value, permission.value, name.value))))
 
-		import pprint
-		pprint.pprint(used_permissions)
+					new_perm = ChromePermission()
+
+					if token:
+						new_perm.namespace = token.value
+					if permission:
+						new_perm.permission = permission.value
+					if name:
+						new_perm.name = name.value
+
+					used_permissions.add(new_perm)
+
 		return used_permissions
+
+	def json_perms_to_set(self, json_perms):
+		requested_perms = set()
+		for p in json_perms:
+			if p.startswith('http') or '*' in p:
+				continue
+			requested_perms.add(p)
+		return requested_perms
 
 
 	def analyze(self, app_id):
 		"""You MUST lock app_id before invoking this function.
+
 		Performs analysis that checks for violation of least privilege
 		violation in the given app or extension.
 
@@ -85,33 +130,43 @@ class LeastPrivilegeAnalyzer:
 			logger.info('Directory does not exist: %s' % app_dir)
 			return None
 
-		perms = self.__extract_permissions(app_dir)
+		logger.info('app_id %s' % app_id)
 
-		if not perms:
-			return None
+		report = LeastPrivilegeSingleReport(app_id)
 
-		results = []
+		# Check for web_url, which indicates if hosted app or not
+		report.web_url = self.find_web_url(app_dir)
 
+		json_perms = self.__extract_permissions(app_dir)
+		if not json_perms:
+			return report
+
+		perms = self.json_perms_to_set(json_perms)
+
+		report.requested_permissions.update(perms)
+
+		# Iterate over every javascript file
 		for root, dirs, files in os.walk(app_dir):
 			for f in files:
 				if f.endswith('.js'):
 					full_path = os.path.join(root, f)
-					print full_path
-					results.append(self.scan_js(full_path))
-		return results
+					logger.info('Scanning %s' % f)
+					used_perms = self.scan_js(full_path)
+					report.used_permissions.update(used_perms)
 
-	def run(self):
-		app_id = None
+		return report
+
+	def run(self, test=False, app_id=None):
 		try:
 			# Get an app_id, add to en_US_processing_set (with TTL)
 			# if not already in the set, else get another app_id
-			app_id = self.lock.set_lock_get_id()
+			if not test:
+				app_id = self.lock.set_lock_get_id()
 
 			if app_id:
 				result = self.analyze(app_id)
 				self.store.put(result)
-
-
-			# Release lock
 		finally:
-			self.lock.unlock()
+			if not test:
+				# Release lock
+				self.lock.unlock()

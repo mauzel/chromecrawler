@@ -34,11 +34,10 @@ if __name__ == '__main__':
 
 	sa = LeastPrivilegeAnalyzer(db=app_r, git_dir=git_root_dir)
 
-	sa.run()
-
+	sa.run(test=True, app_id='aecmbngpoblfijikbmeeehekhmelghgi')
 	#for x in xrange(100):
 		#c.run()
 		#f.run()
 
 		#import time
-		#time.sleep(1)
+		#time.sleep(3)
