@@ -27,10 +27,6 @@ class LeastPrivilegeAnalyzer:
 		self.lock = ApplicationIdLocker(db=db, alphabet=self.alphabet)
 		self.store = ReportStore()
 
-	def __get_app_dir(self, app_id):
-		"""Get the extraction path for extracting crx to git repo."""
-		return os.path.join(self.git_dir, app_id)
-
 	def scan_js(self, js_fn):
 		"""V. Aravind and M Sethumadhavan, p.270 describe
 		a methodology for detecting if permissions are
@@ -58,6 +54,9 @@ class LeastPrivilegeAnalyzer:
 				if token.type == 'ID' and token.value == 'chrome':
 					permission = None
 					name = None
+
+					# Need a sliding window to get the rest of the
+					# permission 3-ple
 					if it.next().type == 'PERIOD':
 						permission = it.next()
 					if it.next().type == 'PERIOD':
@@ -84,29 +83,21 @@ class LeastPrivilegeAnalyzer:
 
 		See V. Aravind and M. Sethumadhavan.
 		"""
-		app_dir = self.__get_app_dir(app_id)
-
-		if not os.path.exists(app_dir):
-			logger.info('Directory does not exist: %s' % app_dir)
-			return None
-
 		logger.info('app_id %s' % app_id)
+		bootstrap = AnalyzerBootstrap(app_id, self.git_dir)
+
+		if not bootstrap.app_dir:
+			return None
 
 		report = LeastPrivilegeSingleReport(app_id)
 
-		# Check for web_url, which indicates if hosted app or not
-		report.web_url = AnalyzerUtils.find_web_url(app_dir)
-
-		json_perms = AnalyzerUtils.extract_permissions(app_dir)
-		if not json_perms:
+		if not bootstrap.json_perms:
 			return report
 
-		perms = AnalyzerUtils.json_perms_to_set(json_perms)
-
-		report.requested_permissions.update(perms)
+		report.requested_permissions.update(bootstrap.perms)
 
 		# Iterate over every javascript file
-		for root, dirs, files in os.walk(app_dir):
+		for root, dirs, files in os.walk(bootstrap.app_dir):
 			for f in files:
 				if f.endswith('.js'):
 					full_path = os.path.join(root, f)

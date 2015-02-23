@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class AnalyzerUtils:
+
 	def __init__(self):
 		pass
 
@@ -57,3 +58,22 @@ class AnalyzerUtils:
 				continue
 			requested_perms.add(p)
 		return requested_perms
+
+
+class AnalyzerBootstrap:
+
+	def __init__(self, app_id, git_dir):
+		self.git_dir = git_dir
+		self.app_id = app_id
+
+		self.app_dir = os.path.join(git_dir, app_id)
+
+		if not os.path.exists(self.app_dir):
+			logger.info('Directory does not exist: %s' % self.app_dir)
+			self.app_dir = None
+			return
+
+		# Check for web_url, which indicates if hosted app or not
+		self.web_url = AnalyzerUtils.find_web_url(self.app_dir)
+		self.json_perms = AnalyzerUtils.extract_permissions(self.app_dir)
+		self.perms = AnalyzerUtils.json_perms_to_set(self.json_perms)
