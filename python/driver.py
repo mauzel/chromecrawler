@@ -34,7 +34,7 @@ if __name__ == '__main__':
 
 	sa = LeastPrivilegeAnalyzer(db=app_r, git_dir=git_root_dir)
 
-	sa.run(test=True, app_id='aecmbngpoblfijikbmeeehekhmelghgi')
+	print sa.analyze('aecmbngpoblfijikbmeeehekhmelghgi').violations()
 	#for x in xrange(100):
 		#c.run()
 		#f.run()
