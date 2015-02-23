@@ -70,3 +70,17 @@ class LeastPrivilegeSingleReport:
 			base_used_permissions.add(p.permission)
 		return self.requested_permissions.difference(base_used_permissions)
 
+
+class MaliciousFlowSingleReport:
+
+	def __init__(self, app_id, web_url=None):
+		self.web_url = web_url
+		self.app_id = app_id
+		self.html_to_remote = set()
+		self.remote_to_fs = set()
+		self.remote_to_html = set()
+		self.requested_permissions = set()
+
+	def __str__(self):
+		return unicode('MaliciousFlowSingleReport: %s' % self.app_id)
+

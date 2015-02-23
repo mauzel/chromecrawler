@@ -7,6 +7,7 @@ sys.path.append("..")
 from itertools import islice
 import json
 from slimit.lexer import Lexer
+from abc import ABCMeta, abstractmethod
 
 import config_utils
 from dao.dictsearchstore import *
@@ -20,12 +21,41 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class LeastPrivilegeAnalyzer:
+class BaseAnalyzer(object):
+	__metaclass__ = ABCMeta
+
 	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
 		self.alphabet = alphabet
 		self.git_dir = git_dir
 		self.lock = ApplicationIdLocker(db=db, alphabet=self.alphabet)
 		self.store = ReportStore()
+
+	@abstractmethod
+	def analyze(self, app_id):
+		pass
+
+	@abstractmethod
+	def scan_js(self, js_fn):
+		pass
+
+	@abstractmethod
+	def run(self):
+		try:
+			# Get an app_id, add to en_US_processing_set (with TTL)
+			# if not already in the set, else get another app_id
+			app_id = self.lock.set_lock_get_id()
+
+			if app_id:
+				result = self.analyze(app_id)
+				self.store.put(result)
+		finally:
+			self.lock.unlock()
+
+
+class LeastPrivilegeAnalyzer(BaseAnalyzer):
+
+	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
+		super(LeastPrivilegeAnalyzer, self).__init__(db, git_dir, alphabet)
 
 	def scan_js(self, js_fn):
 		"""V. Aravind and M Sethumadhavan, p.270 describe
@@ -83,9 +113,9 @@ class LeastPrivilegeAnalyzer:
 
 		See V. Aravind and M. Sethumadhavan.
 		"""
-		logger.info('app_id %s' % app_id)
-		bootstrap = AnalyzerBootstrap(app_id, self.git_dir)
+		logger.info('LeastPrivilegeAnalyzer: app_id %s' % app_id)
 
+		bootstrap = AnalyzerBootstrap(app_id, self.git_dir)
 		if not bootstrap.app_dir:
 			return None
 
@@ -108,13 +138,79 @@ class LeastPrivilegeAnalyzer:
 		return report
 
 	def run(self):
-		try:
-			# Get an app_id, add to en_US_processing_set (with TTL)
-			# if not already in the set, else get another app_id
-			app_id = self.lock.set_lock_get_id()
+		super(LeastPrivilegeAnalyzer, self).run()
 
-			if app_id:
-				result = self.analyze(app_id)
-				self.store.put(result)
-		finally:
-			self.lock.unlock()
+
+class MaliciousFlowAnalyzer(BaseAnalyzer):
+
+	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
+		super(MaliciousFlowAnalyzer, self).__init__(db, git_dir, alphabet)
+
+	def scan_js(self, js_fn):
+		"""V. Aravind and M Sethumadhavan, p.270-271.
+		Unfortunately, this may be outdated. See:
+		https://developer.chrome.com/extensions/content_scripts#host-page-communication
+		"""
+		used_permissions = set()
+
+		# We do not know if Google validates all JS submissions.
+		# So use a lexer instead of a parser.
+		l = Lexer()
+
+		with open(js_fn, 'r') as f:
+			l.input(f.read())
+			it = l.__iter__()
+
+			for token in l:
+				if token.type == 'ID' and token.value == 'window':
+					content = None
+					document = None
+
+					# Probably outdated, need to research
+					if it.next().type == 'PERIOD':
+						content = it.next()
+						if content.value != 'content':
+							content = None
+
+						if content and it.next().type == 'PERIOD':
+							document = it.next()
+							if document.value != 'document':
+								document = None
+
+					if document:
+						print token, content, document
+
+		return used_permissions
+
+	def analyze(self, app_id):
+		"""You MUST lock app_id before invoking this function.
+
+		Performs analysis that checks for malicious flows.
+
+		See V. Aravind and M. Sethumadhavan.
+		"""
+		logger.info('MaliciousFlowAnalyzer: app_id %s' % app_id)
+
+		bootstrap = AnalyzerBootstrap(app_id, self.git_dir)
+		if not bootstrap.app_dir:
+			return None
+
+		report = MaliciousFlowSingleReport(app_id)
+
+		if not bootstrap.json_perms:
+			return report
+
+		report.requested_permissions.update(bootstrap.perms)
+
+		# Iterate over every javascript file
+		for root, dirs, files in os.walk(bootstrap.app_dir):
+			for f in files:
+				if f.endswith('.js'):
+					full_path = os.path.join(root, f)
+					logger.info('Scanning %s' % f)
+					used_perms = self.scan_js(full_path)
+
+		return report
+
+	def run(self):
+		super(MaliciousFlowAnalyzer, self).run()
