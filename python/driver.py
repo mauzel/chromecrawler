@@ -51,7 +51,7 @@ if __name__ == '__main__':
 	print mfa.analyze('jcnibiamknmoengmomlfnjneiemlpnlf')
 
 	jsua = JSUnpackAnalyzer(db=app_r, git_dir=git_root_dir)
-	jsua_result = jsua.analyze('anaphblkfplenhkephgneolhnmjminjg')
+	jsua_result = jsua.analyze('aecmbngpoblfijikbmeeehekhmelghgi')
 
 	import pprint
 	pprint.pprint(jsua_result.results)

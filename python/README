@@ -17,6 +17,8 @@ apt:
 
 other:
 	jsunpack-n
+		Note for SpiderMonkey:
+			sudo make BUILD_OPT=1 JS_DIST=/usr/local -f Makefile.ref export
 
 
 Analyzer:

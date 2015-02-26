@@ -245,14 +245,19 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 	jsunpack_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../libs/jsunpack_n/'))
 	jsunpack_py = os.path.join(jsunpack_dir, 'jsunpackn.py')
 	cmd = [
-			jsunpack_py,
-			'-v'
-			]
+		jsunpack_py,
+		'-v', # Verbose
+		'-a' # Follow URLs that are found
+		]
 
 	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
 		super(JSUnpackAnalyzer, self).__init__(db, git_dir, alphabet)
 
 	def scan_url(self, url, return_key='web_url'):
+		"""Scans an URL for malicious JS using jsunpackn.
+
+		Results are returned as a dict keyed by return_key.
+		"""
 		result = {}
 		result[return_key] = []
 
@@ -267,10 +272,24 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 
 		return result
 
-	def scan_js(self, js_fn, base_app_dir=None):
-		"""Scan using jsunpackn."""
+	def scan_js(self, js_fn, base_app_dir=''):
+		"""Scan a js file using jsunpackn.
+
+		If base_app_dir is provided, it will be used to
+		remove that base_app_dir from the front of js_fn,
+		i.e. to get a relative path rather than the full path
+		of js_fn in the output results.
+
+		Return value is a dict in the form of:
+			js_filename: path_to_file,
+			analysis: jsunpack_results
+		"""
+		slice_off = len(base_app_dir) + 1
+		if not base_app_dir:
+			slice_off = 0
+
 		result = {}
-		result['js_fn'] = js_fn[len(base_app_dir) + 1:]
+		result['js_fn'] = js_fn[slice_off:]
 		result['analysis'] = []
 
 		def process_output(line):
@@ -312,6 +331,7 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 					logger.info('Scanning %s' % f)
 					report.results.append(self.scan_js(full_path, bootstrap.app_dir))
 
+		# Perform extra analysis for hosted apps that have a web_url
 		if report.web_url:
 			report.web_url_result = self.scan_url(report.web_url, return_key=report.web_url)
 
