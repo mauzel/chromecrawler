@@ -95,5 +95,15 @@ class JSUnpackAnalyzerSingleReport:
 		self.requested_permissions = set()
 
 	def __str__(self):
-		return unicode('MaliciousFlowSingleReport: %s' % self.app_id)
+		return unicode('JSUnpackAnalyzerSingleReport: %s' % self.app_id)
+
+class WepawetAnalyzerResult:
+
+	def __init__(self, app_id, web_url=None):
+		self.web_url = web_url
+		self.web_url_result = {}
+		self.app_id = app_id
+
+	def __str__(self):
+		return unicode('WepawetAnalyzerResult: %s' % self.app_id)
 

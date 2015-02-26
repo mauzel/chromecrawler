@@ -57,6 +57,13 @@ if __name__ == '__main__':
 	pprint.pprint(jsua_result.results)
 	print
 	pprint.pprint(jsua_result.web_url_result)
+
+	wa = WepawetAnalyzer(db=app_r, git_dir=git_root_dir)
+	wa_result = wa.analyze('anaphblkfplenhkephgneolhnmjminjg')
+
+	import pprint
+	pprint.pprint(wa_result.web_url_result)
+
 	#for x in xrange(100):
 		#print mfa.run()
 		#import time
