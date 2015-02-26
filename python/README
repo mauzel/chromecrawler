@@ -17,8 +17,11 @@ apt:
 
 other:
 	jsunpack-n
+		Located in libs/jsunpack_n
 		Note for SpiderMonkey:
 			sudo make BUILD_OPT=1 JS_DIST=/usr/local -f Makefile.ref export
+	wepawet
+		Located at libs/wepawet/submit_to_wepawet.py
 
 
 Analyzer:
