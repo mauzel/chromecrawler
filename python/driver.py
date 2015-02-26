@@ -49,6 +49,9 @@ if __name__ == '__main__':
 
 	mfa = MaliciousFlowAnalyzer(db=app_r, git_dir=git_root_dir)
 	print mfa.analyze('jcnibiamknmoengmomlfnjneiemlpnlf')
+
+	jsua = JSUnpackAnalyzer(db=app_r, git_dir=git_root_dir)
+	print jsua.analyze('aecmbngpoblfijikbmeeehekhmelghgi').results
 	#for x in xrange(100):
 		#print mfa.run()
 		#import time
