@@ -51,7 +51,12 @@ if __name__ == '__main__':
 	print mfa.analyze('jcnibiamknmoengmomlfnjneiemlpnlf')
 
 	jsua = JSUnpackAnalyzer(db=app_r, git_dir=git_root_dir)
-	print jsua.analyze('aecmbngpoblfijikbmeeehekhmelghgi').results
+	jsua_result = jsua.analyze('anaphblkfplenhkephgneolhnmjminjg')
+
+	import pprint
+	pprint.pprint(jsua_result.results)
+	print
+	pprint.pprint(jsua_result.web_url_result)
 	#for x in xrange(100):
 		#print mfa.run()
 		#import time

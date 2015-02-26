@@ -126,6 +126,7 @@ class LeastPrivilegeAnalyzer(BaseAnalyzer):
 			return report
 
 		report.requested_permissions.update(bootstrap.perms)
+		report.web_url = bootstrap.web_url
 
 		# Iterate over every javascript file
 		for root, dirs, files in os.walk(bootstrap.app_dir):
@@ -220,6 +221,7 @@ class MaliciousFlowAnalyzer(BaseAnalyzer):
 			return report
 
 		report.requested_permissions.update(bootstrap.perms)
+		report.web_url = bootstrap.web_url
 
 		# Iterate over every javascript file
 		for root, dirs, files in os.walk(bootstrap.app_dir):
@@ -249,6 +251,21 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 
 	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
 		super(JSUnpackAnalyzer, self).__init__(db, git_dir, alphabet)
+
+	def scan_url(self, url, return_key='web_url'):
+		result = {}
+		result[return_key] = []
+
+		def process_output(line):
+			if not line.startswith('\n'):
+				result[return_key].append(line)
+
+		os.chdir(self.jsunpack_dir)
+		p = python(self.cmd + ['-u', url], _out=process_output)
+		p.wait()
+		logger.info('Scanned URL: %s' % url)
+
+		return result
 
 	def scan_js(self, js_fn, base_app_dir=None):
 		"""Scan using jsunpackn."""
@@ -285,6 +302,7 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 			return report
 
 		report.requested_permissions.update(bootstrap.perms)
+		report.web_url = bootstrap.web_url
 
 		# Iterate over every javascript file
 		for root, dirs, files in os.walk(bootstrap.app_dir):
@@ -293,6 +311,9 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 					full_path = os.path.join(root, f)
 					logger.info('Scanning %s' % f)
 					report.results.append(self.scan_js(full_path, bootstrap.app_dir))
+
+		if report.web_url:
+			report.web_url_result = self.scan_url(report.web_url, return_key=report.web_url)
 
 		return report
 

@@ -89,6 +89,7 @@ class JSUnpackAnalyzerSingleReport:
 
 	def __init__(self, app_id, web_url=None):
 		self.web_url = web_url
+		self.web_url_result = {}
 		self.app_id = app_id
 		self.results = []
 		self.requested_permissions = set()
