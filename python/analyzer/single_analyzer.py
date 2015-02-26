@@ -8,6 +8,7 @@ from itertools import islice
 import json
 from slimit.lexer import Lexer
 from abc import ABCMeta, abstractmethod
+from sh import python
 
 import config_utils
 from dao.dictsearchstore import *
@@ -35,7 +36,7 @@ class BaseAnalyzer(object):
 		pass
 
 	@abstractmethod
-	def scan_js(self, js_fn):
+	def scan_js(self, js_fn, base_app_dir=None):
 		pass
 
 	@abstractmethod
@@ -57,7 +58,7 @@ class LeastPrivilegeAnalyzer(BaseAnalyzer):
 	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
 		super(LeastPrivilegeAnalyzer, self).__init__(db, git_dir, alphabet)
 
-	def scan_js(self, js_fn):
+	def scan_js(self, js_fn, base_app_dir=None):
 		"""V. Aravind and M Sethumadhavan, p.270 describe
 		a methodology for detecting if permissions are
 		actually used. This is done by scanning JS source
@@ -143,10 +144,28 @@ class LeastPrivilegeAnalyzer(BaseAnalyzer):
 
 class MaliciousFlowAnalyzer(BaseAnalyzer):
 
+	sus_perms = [
+		'contextMenus', # Allows creation of context menus, which could dl
+		'copresence', # Communicate with nearby devices using this service
+		'webRequest', # Intercept/block/modify requests
+		'blockingWebRequest',
+		'declarativeWebRequest', # Intercept/block/modify requests
+		'documentScan', # Retrieve images from attached doc scanners
+		'downloads', # Programmatically initiate downloads, etc
+		'enterprise', # .platformKeys - Get/send certs
+		'platformKeys', # Non-enterprise platformKeys
+		'fileSystemProvider', # Chrome OS only, create FS
+		'gcm', # Send messages using Google Cloud Messaging
+		'nativeMessaging', # Has security concerns if used wrongly
+		'proxy', # Controls proxies
+		'vpnProvider', # Similar risks as proxy
+		'pushMessaging', # Deprecated version of gcm
+		]
+
 	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
 		super(MaliciousFlowAnalyzer, self).__init__(db, git_dir, alphabet)
 
-	def scan_js(self, js_fn):
+	def scan_js(self, js_fn, base_app_dir=None):
 		"""V. Aravind and M Sethumadhavan, p.270-271.
 		Unfortunately, this may be outdated. See:
 		https://developer.chrome.com/extensions/content_scripts#host-page-communication
@@ -209,6 +228,71 @@ class MaliciousFlowAnalyzer(BaseAnalyzer):
 					full_path = os.path.join(root, f)
 					logger.info('Scanning %s' % f)
 					used_perms = self.scan_js(full_path)
+
+		return report
+
+	def run(self):
+		super(MaliciousFlowAnalyzer, self).run()
+
+
+class JSUnpackAnalyzer(BaseAnalyzer):
+	"""Analyzer that uses the jsunpack-n program to check for
+	malicious Javascript and URLs with malicious JavaScript.
+	"""
+
+	jsunpack_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../libs/jsunpack_n/'))
+	jsunpack_py = os.path.join(jsunpack_dir, 'jsunpackn.py')
+	cmd = [
+			jsunpack_py,
+			'-v'
+			]
+
+	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
+		super(JSUnpackAnalyzer, self).__init__(db, git_dir, alphabet)
+
+	def scan_js(self, js_fn, base_app_dir=None):
+		"""Scan using jsunpackn."""
+		result = {}
+		result['js_fn'] = js_fn[len(base_app_dir) + 1:]
+		result['analysis'] = []
+
+		def process_output(line):
+			if not line.startswith('\n'):
+				result['analysis'].append(line)
+
+		os.chdir(self.jsunpack_dir)
+		p = python(self.cmd + [js_fn], _out=process_output)
+		p.wait()
+
+		return result
+
+	def analyze(self, app_id):
+		"""You MUST lock app_id before invoking this function.
+
+		Performs analysis that checks for malicious flows.
+
+		See V. Aravind and M. Sethumadhavan.
+		"""
+		logger.info('JSUnpackAnalyzer: app_id %s' % app_id)
+
+		bootstrap = AnalyzerBootstrap(app_id, self.git_dir)
+		if not bootstrap.app_dir:
+			return None
+
+		report = JSUnpackAnalyzerSingleReport(app_id)
+
+		if not bootstrap.json_perms:
+			return report
+
+		report.requested_permissions.update(bootstrap.perms)
+
+		# Iterate over every javascript file
+		for root, dirs, files in os.walk(bootstrap.app_dir):
+			for f in files:
+				if f.endswith('.js'):
+					full_path = os.path.join(root, f)
+					logger.info('Scanning %s' % f)
+					report.results.append(self.scan_js(full_path, bootstrap.app_dir))
 
 		return report
 
