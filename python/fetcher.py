@@ -1,5 +1,9 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import redis
 import argparse, json, config_utils
+import time
 
 from dao.dictsearchstore import DictionarySearchStore, DictionaryAttackKeyValue
 from crawler.discoverer import *
@@ -7,12 +11,18 @@ from crawler.fetcher import *
 from analyzer.single_analyzer import *
 
 
-parser = argparse.ArgumentParser(description='driver for testing')
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+parser = argparse.ArgumentParser(description='driver for crawling')
 parser.add_argument('config', help='path to configuration file')
+parser.add_argument('--sleep', default=1, type=float, help='time to sleep in seconds in between dictionary attack keys, default=1')
 
 
 if __name__ == '__main__':
 	args = parser.parse_args()
+	sleep_time = args.sleep
 
 	config = {}
 	with open(args.config, 'r') as f:
@@ -20,11 +30,7 @@ if __name__ == '__main__':
 
 	# Get our redis store configurations
 	r = config_utils.redis_from_config(config)
-	d = DictionarySearchStore(r)
 	app_r = config_utils.redis_from_config(config, key='app_meta_config')
-
-	# Crawler
-	c = WebStoreDiscoverer(d, url=config['crawl_point'], db=app_r)
 
 	# Metadata fetcher to be used with the CRX fetcher
 	m = MetadataFetcher(base_url=config['detail_page'])
@@ -35,24 +41,9 @@ if __name__ == '__main__':
 	# CRX fetcher, also fetches metadata at the same time
 	f = ChromePackageFetcher(url=config['fetch_point'], db=app_r, git_dir=git_root_dir, crx_dir=crx_root_dir, metadata_fetcher=m)
 
-	# Test crawling and fetching
-	#for x in xrange(100):
-		#c.run()
-		#f.run()
-
-		#import time
-		#time.sleep(3)
-
-	# Single report analyzers
-	lpa = LeastPrivilegeAnalyzer(db=app_r, git_dir=git_root_dir)
-	print lpa.analyze('aecmbngpoblfijikbmeeehekhmelghgi').violations()
-
-	mfa = MaliciousFlowAnalyzer(db=app_r, git_dir=git_root_dir)
-	print mfa.analyze('jcnibiamknmoengmomlfnjneiemlpnlf')
-
-	jsua = JSUnpackAnalyzer(db=app_r, git_dir=git_root_dir)
-	print jsua.analyze('aecmbngpoblfijikbmeeehekhmelghgi').results
-	#for x in xrange(100):
-		#print mfa.run()
-		#import time
-		#time.sleep(0.5)
+	# Fetch forever
+	while True:
+		f.run()
+		if sleep_time:
+			logger.info('Sleeping for: %s seconds' % sleep_time)
+			time.sleep(sleep_time)

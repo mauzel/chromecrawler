@@ -25,11 +25,9 @@ logger = logging.getLogger(__name__)
 class BaseAnalyzer(object):
 	__metaclass__ = ABCMeta
 
-	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
+	def __init__(self, git_dir, alphabet=AlphabetType.en_US):
 		self.alphabet = alphabet
 		self.git_dir = git_dir
-		self.lock = ApplicationIdLocker(db=db, alphabet=self.alphabet)
-		self.store = ReportStore()
 
 	@abstractmethod
 	def analyze(self, app_id):
@@ -39,24 +37,11 @@ class BaseAnalyzer(object):
 	def scan_js(self, js_fn, base_app_dir=None):
 		pass
 
-	@abstractmethod
-	def run(self):
-		try:
-			# Get an app_id, add to en_US_processing_set (with TTL)
-			# if not already in the set, else get another app_id
-			app_id = self.lock.set_lock_get_id()
-
-			if app_id:
-				result = self.analyze(app_id)
-				self.store.put(result)
-		finally:
-			self.lock.unlock()
-
 
 class LeastPrivilegeAnalyzer(BaseAnalyzer):
 
-	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
-		super(LeastPrivilegeAnalyzer, self).__init__(db, git_dir, alphabet)
+	def __init__(self, git_dir, alphabet=AlphabetType.en_US):
+		super(LeastPrivilegeAnalyzer, self).__init__(git_dir, alphabet)
 
 	def scan_js(self, js_fn, base_app_dir=None):
 		"""V. Aravind and M Sethumadhavan, p.270 describe
@@ -126,6 +111,7 @@ class LeastPrivilegeAnalyzer(BaseAnalyzer):
 			return report
 
 		report.requested_permissions.update(bootstrap.perms)
+		report.web_url = bootstrap.web_url
 
 		# Iterate over every javascript file
 		for root, dirs, files in os.walk(bootstrap.app_dir):
@@ -160,10 +146,10 @@ class MaliciousFlowAnalyzer(BaseAnalyzer):
 		'proxy', # Controls proxies
 		'vpnProvider', # Similar risks as proxy
 		'pushMessaging', # Deprecated version of gcm
-		]
+	]
 
-	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
-		super(MaliciousFlowAnalyzer, self).__init__(db, git_dir, alphabet)
+	def __init__(self, git_dir, alphabet=AlphabetType.en_US):
+		super(MaliciousFlowAnalyzer, self).__init__(git_dir, alphabet)
 
 	def scan_js(self, js_fn, base_app_dir=None):
 		"""V. Aravind and M Sethumadhavan, p.270-271.
@@ -220,6 +206,7 @@ class MaliciousFlowAnalyzer(BaseAnalyzer):
 			return report
 
 		report.requested_permissions.update(bootstrap.perms)
+		report.web_url = bootstrap.web_url
 
 		# Iterate over every javascript file
 		for root, dirs, files in os.walk(bootstrap.app_dir):
@@ -243,17 +230,51 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 	jsunpack_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../libs/jsunpack_n/'))
 	jsunpack_py = os.path.join(jsunpack_dir, 'jsunpackn.py')
 	cmd = [
-			jsunpack_py,
-			'-v'
-			]
+		jsunpack_py,
+		'-v', # Verbose
+		'-a' # Follow URLs that are found
+	]
 
-	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
-		super(JSUnpackAnalyzer, self).__init__(db, git_dir, alphabet)
+	def __init__(self, git_dir, alphabet=AlphabetType.en_US):
+		super(JSUnpackAnalyzer, self).__init__(git_dir, alphabet)
 
-	def scan_js(self, js_fn, base_app_dir=None):
-		"""Scan using jsunpackn."""
+	def scan_url(self, url, return_key='web_url'):
+		"""Scans an URL for malicious JS using jsunpackn.
+
+		Results are returned as a dict keyed by return_key.
+		"""
 		result = {}
-		result['js_fn'] = js_fn[len(base_app_dir) + 1:]
+		result[return_key] = []
+
+		def process_output(line):
+			if not line.startswith('\n'):
+				result[return_key].append(line)
+
+		os.chdir(self.jsunpack_dir)
+		p = python(self.cmd + ['-u', url], _out=process_output)
+		p.wait()
+		logger.info('Scanned URL: %s' % url)
+
+		return result
+
+	def scan_js(self, js_fn, base_app_dir=''):
+		"""Scan a js file using jsunpackn.
+
+		If base_app_dir is provided, it will be used to
+		remove that base_app_dir from the front of js_fn,
+		i.e. to get a relative path rather than the full path
+		of js_fn in the output results.
+
+		Return value is a dict in the form of:
+			js_filename: path_to_file,
+			analysis: jsunpack_results
+		"""
+		slice_off = len(base_app_dir) + 1
+		if not base_app_dir:
+			slice_off = 0
+
+		result = {}
+		result['js_fn'] = js_fn[slice_off:]
 		result['analysis'] = []
 
 		def process_output(line):
@@ -267,12 +288,7 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 		return result
 
 	def analyze(self, app_id):
-		"""You MUST lock app_id before invoking this function.
-
-		Performs analysis that checks for malicious flows.
-
-		See V. Aravind and M. Sethumadhavan.
-		"""
+		"""You MUST lock app_id before invoking this function."""
 		logger.info('JSUnpackAnalyzer: app_id %s' % app_id)
 
 		bootstrap = AnalyzerBootstrap(app_id, self.git_dir)
@@ -285,6 +301,7 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 			return report
 
 		report.requested_permissions.update(bootstrap.perms)
+		report.web_url = bootstrap.web_url
 
 		# Iterate over every javascript file
 		for root, dirs, files in os.walk(bootstrap.app_dir):
@@ -293,6 +310,73 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 					full_path = os.path.join(root, f)
 					logger.info('Scanning %s' % f)
 					report.results.append(self.scan_js(full_path, bootstrap.app_dir))
+
+		# Perform extra analysis for hosted apps that have a web_url
+		if report.web_url:
+			report.web_url_result = self.scan_url(report.web_url, return_key=report.web_url)
+
+		return report
+
+	def run(self):
+		super(MaliciousFlowAnalyzer, self).run()
+
+
+class WepawetAnalyzer(BaseAnalyzer):
+	"""Analyzer that uses online Wepawet analyzer."""
+
+	wepawet_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../libs/wepawet/'))
+	wepawet_py = os.path.join(wepawet_dir, 'submit_to_wepawet.py')
+	cmd = [
+		wepawet_py,
+		'-v', # Verbose
+	]
+
+	def __init__(self, git_dir, alphabet=AlphabetType.en_US):
+		super(WepawetAnalyzer, self).__init__(git_dir, alphabet)
+
+	def scan_url(self, url, return_key='web_url'):
+		"""Submit an URL for scanning for malicious JS using wepawet.
+
+		Results are returned as a dict keyed by return_key. The return
+		value will be a hash representing the job ID. You should later
+		query the results of this job ID to see what Wepawet's results
+		are, since it takes time for them to process it or whatever.
+		"""
+		result = {}
+		result[return_key] = []
+
+		def process_output(line):
+			if not line.startswith('\n'):
+				result[return_key].append(line)
+
+		os.chdir(self.wepawet_dir)
+		p = python(self.cmd + ['-s', url], _out=process_output)
+		p.wait()
+		logger.info('Scanned URL: %s' % url)
+
+		return result
+
+	def scan_js(self, js_fn, base_app_dir=''):
+		return None
+
+	def analyze(self, app_id):
+		"""You MUST lock app_id before invoking this function."""
+		logger.info('WepawetAnalyzer: app_id %s' % app_id)
+
+		bootstrap = AnalyzerBootstrap(app_id, self.git_dir)
+		if not bootstrap.app_dir:
+			return None
+
+		report = WepawetAnalyzerResult(app_id)
+
+		if not bootstrap.json_perms:
+			return report
+
+		report.web_url = bootstrap.web_url
+
+		# Perform extra analysis for hosted apps that have a web_url
+		if report.web_url:
+			report.web_url_result = self.scan_url(report.web_url, return_key=report.web_url)
 
 		return report
 
