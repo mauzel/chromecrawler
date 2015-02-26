@@ -25,11 +25,9 @@ logger = logging.getLogger(__name__)
 class BaseAnalyzer(object):
 	__metaclass__ = ABCMeta
 
-	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
+	def __init__(self, git_dir, alphabet=AlphabetType.en_US):
 		self.alphabet = alphabet
 		self.git_dir = git_dir
-		self.lock = ApplicationIdLocker(db=db, alphabet=self.alphabet)
-		self.store = ReportStore()
 
 	@abstractmethod
 	def analyze(self, app_id):
@@ -39,24 +37,11 @@ class BaseAnalyzer(object):
 	def scan_js(self, js_fn, base_app_dir=None):
 		pass
 
-	@abstractmethod
-	def run(self):
-		try:
-			# Get an app_id, add to en_US_processing_set (with TTL)
-			# if not already in the set, else get another app_id
-			app_id = self.lock.set_lock_get_id()
-
-			if app_id:
-				result = self.analyze(app_id)
-				self.store.put(result)
-		finally:
-			self.lock.unlock()
-
 
 class LeastPrivilegeAnalyzer(BaseAnalyzer):
 
-	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
-		super(LeastPrivilegeAnalyzer, self).__init__(db, git_dir, alphabet)
+	def __init__(self, git_dir, alphabet=AlphabetType.en_US):
+		super(LeastPrivilegeAnalyzer, self).__init__(git_dir, alphabet)
 
 	def scan_js(self, js_fn, base_app_dir=None):
 		"""V. Aravind and M Sethumadhavan, p.270 describe
@@ -161,10 +146,10 @@ class MaliciousFlowAnalyzer(BaseAnalyzer):
 		'proxy', # Controls proxies
 		'vpnProvider', # Similar risks as proxy
 		'pushMessaging', # Deprecated version of gcm
-		]
+	]
 
-	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
-		super(MaliciousFlowAnalyzer, self).__init__(db, git_dir, alphabet)
+	def __init__(self, git_dir, alphabet=AlphabetType.en_US):
+		super(MaliciousFlowAnalyzer, self).__init__(git_dir, alphabet)
 
 	def scan_js(self, js_fn, base_app_dir=None):
 		"""V. Aravind and M Sethumadhavan, p.270-271.
@@ -248,10 +233,10 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 		jsunpack_py,
 		'-v', # Verbose
 		'-a' # Follow URLs that are found
-		]
+	]
 
-	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
-		super(JSUnpackAnalyzer, self).__init__(db, git_dir, alphabet)
+	def __init__(self, git_dir, alphabet=AlphabetType.en_US):
+		super(JSUnpackAnalyzer, self).__init__(git_dir, alphabet)
 
 	def scan_url(self, url, return_key='web_url'):
 		"""Scans an URL for malicious JS using jsunpackn.
@@ -344,10 +329,10 @@ class WepawetAnalyzer(BaseAnalyzer):
 	cmd = [
 		wepawet_py,
 		'-v', # Verbose
-		]
+	]
 
-	def __init__(self, db, git_dir, alphabet=AlphabetType.en_US):
-		super(WepawetAnalyzer, self).__init__(db, git_dir, alphabet)
+	def __init__(self, git_dir, alphabet=AlphabetType.en_US):
+		super(WepawetAnalyzer, self).__init__(git_dir, alphabet)
 
 	def scan_url(self, url, return_key='web_url'):
 		"""Submit an URL for scanning for malicious JS using wepawet.
