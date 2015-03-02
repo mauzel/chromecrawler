@@ -3,6 +3,7 @@
 
 import redis
 import argparse, json, config_utils
+import time
 
 from dao.dictsearchstore import DictionarySearchStore, DictionaryAttackKeyValue
 from crawler.discoverer import *
@@ -16,11 +17,13 @@ logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(description='driver for crawling')
 parser.add_argument('config', help='path to configuration file')
+parser.add_argument('--sleep', default=1, type=float, help='time to sleep in seconds in between dictionary attack keys, default=1')
 parser.add_argument('--alphabet', default='en_US', help='alphabet to use, default=en_US')
 
 
 if __name__ == '__main__':
 	args = parser.parse_args()
+	sleep_time = args.sleep
 
 	config = {}
 	with open(args.config, 'r') as f:
@@ -28,9 +31,23 @@ if __name__ == '__main__':
 
 	# Get our redis store configurations
 	r = config_utils.redis_from_config(config)
+	d = DictionarySearchStore(r)
 	app_r = config_utils.redis_from_config(config, key='app_meta_config')
 
 	git_root_dir = config['git_root_dir']
+	crx_root_dir = config['crx_root_dir']
+
+	# Discovering (Crawling) happens separately
+
+	# Instantiate metadata fetcher, which gets passed into fetcher
+	m = MetadataFetcher(base_url=config['detail_page'])
+
+	# CRX fetcher, also fetches metadata at the same time
+	f = ChromePackageFetcher(url=config['fetch_point'],
+							 db=app_r,
+							 git_dir=git_root_dir,
+							 crx_dir=crx_root_dir,
+							 metadata_fetcher=m)
 
 	# Chained list of analyzers
 	analyzers = [
@@ -51,9 +68,12 @@ if __name__ == '__main__':
 			# if not already in the set, else get another app_id
 			app_id = lock.set_lock_get_id()
 			if app_id:
-				for analyzer in analyzers:
-					result = analyzer.analyze(app_id)
-					store.put(result)
+				# Fetch metadata for the app
+				if f.run(app_id):
+					for analyzer in analyzers:
+						result = analyzer.analyze(app_id)
+						store.put(result)
+
 			logger.info('done with: %s' % app_id)
 		finally:
 			lock.unlock()
