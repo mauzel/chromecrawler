@@ -124,9 +124,6 @@ class LeastPrivilegeAnalyzer(BaseAnalyzer):
 
 		return report
 
-	def run(self):
-		super(LeastPrivilegeAnalyzer, self).run()
-
 
 class MaliciousFlowAnalyzer(BaseAnalyzer):
 
@@ -217,9 +214,6 @@ class MaliciousFlowAnalyzer(BaseAnalyzer):
 					used_perms = self.scan_js(full_path)
 
 		return report
-
-	def run(self):
-		super(MaliciousFlowAnalyzer, self).run()
 
 
 class JSUnpackAnalyzer(BaseAnalyzer):
@@ -317,9 +311,6 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 
 		return report
 
-	def run(self):
-		super(MaliciousFlowAnalyzer, self).run()
-
 
 class WepawetAnalyzer(BaseAnalyzer):
 	"""Analyzer that uses online Wepawet analyzer."""
@@ -379,6 +370,3 @@ class WepawetAnalyzer(BaseAnalyzer):
 			report.web_url_result = self.scan_url(report.web_url, return_key=report.web_url)
 
 		return report
-
-	def run(self):
-		super(MaliciousFlowAnalyzer, self).run()

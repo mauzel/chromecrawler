@@ -140,31 +140,19 @@ class ChromePackageFetcher:
 
 		return (app_path, self.extract_crx(app_path, app_id))
 
-	def run(self):
-		app_id = None
-		try:
-			# Get an app_id, add to en_US_processing_set (with TTL)
-			# if not already in the set, else get another app_id
-			app_id = self.app_id_locker.set_lock_get_id()
+	def run(self, app_id=None):
+		# Fetch app
+		app_path, extract_path = self.fetch_app(app_id)
 
-			# Fetch app
-			app_path, extract_path = self.fetch_app(app_id)
+		if app_path:
+			# Fetch metadata
+			metadata = self.metadata_fetcher.fetch_tags(app_id)
 
-			if app_path:
-				# Fetch metadata
-				metadata = self.metadata_fetcher.fetch_tags(app_id)
+			# Commit to git repo
+			self.git_handler.init_repo(extract_path)
+			self.git_handler.commit(metadata, extract_path)
 
-				# Commit to git repo
-				self.git_handler.init_repo(extract_path)
-				self.git_handler.commit(metadata, extract_path)
-
-			import time
-			print 'sleeping for 1 secs to simulate fetching duration'
-			time.sleep(1)
-
-			# Release lock
-		finally:
-			self.app_id_locker.unlock()
+		return extract_path
 
 
 class MetadataFetcher:
