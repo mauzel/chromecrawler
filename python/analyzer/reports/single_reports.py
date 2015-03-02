@@ -23,7 +23,7 @@ class BaseSingleReport(object):
 		return vars(self)
 
 
-class ChromePermission:
+class ChromePermission(object):
 	"""Represents the 3-ple Chrome permissions as described by
 	V. Aravind and M Sethumadhavan.
 
@@ -36,7 +36,7 @@ class ChromePermission:
 		self.name = name
 
 	def __str__(self):
-		return vars(self)
+		return self.as_triple()
 
 	def __repr__(self):
 		return json.dumps(vars(self))
@@ -55,6 +55,9 @@ class ChromePermission:
 
 	def __hash__(self):
 		return hash(self.__repr__())
+
+	def as_triple(self):
+		return '.'.join(filter(None, (self.namespace, self.permission, self.name)))
 
 
 class LeastPrivilegeSingleReport(BaseSingleReport):

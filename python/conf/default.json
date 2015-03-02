@@ -5,6 +5,7 @@
     "detail_page": "https://chrome.google.com/webstore/detail/",
     "git_root_dir": "/home/sena/e6118-git/",
     "crx_root_dir": "/home/sena/e6118-crx/",
+    "reports_root_dir": "/home/sena/e6118-reports/",
     "dictionary_config": {
         "host": "localhost",
         "port": "6379",

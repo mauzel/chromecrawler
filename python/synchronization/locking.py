@@ -12,7 +12,7 @@ from dao.dictsearchstore import *
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class ApplicationIdLocker:
+class ApplicationIdLocker(object):
 	"""Handles locking/unlocking of app_ids so that multiple
 	fetchers don't fetch the same app_id.
 
@@ -54,7 +54,7 @@ class ApplicationIdLocker:
 	def need_fetch(self, value):
 		"""Checks if the app_id timestamp is 0 (never fetched) or old."""
 		value = int(value)
-		return value == 0 or value < config_utils.current_time_millis() - 10000
+		return value == 0 or value < config_utils.current_time_millis() - 100000000
 
 	def set_lock_get_id(self):
 		"""Get an app_id that isn't currently locked for fetching."""

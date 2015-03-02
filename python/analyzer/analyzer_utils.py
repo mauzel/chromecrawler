@@ -40,7 +40,12 @@ class AnalyzerUtils:
 		app within your browser.
 		"""
 		with open(os.path.join(app_dir, 'manifest.json'), 'r') as f:
-			mani = json.loads(f.read())
+			try:
+				mani = json.loads(f.read())
+			except ValueError, e:
+				logger.exception('Failed to read JSON from %s' % app_dir)
+				raise ValueError(e)
+
 			if 'app' in mani and 'launch' in mani['app']:
 				launch = mani['app']['launch']
 				if 'web_url' in launch:
@@ -53,10 +58,13 @@ class AnalyzerUtils:
 	@staticmethod
 	def json_perms_to_set(json_perms):
 		requested_perms = set()
-		for p in json_perms:
-			if p.startswith('http') or '*' in p:
-				continue
-			requested_perms.add(p)
+		if json_perms:
+			for p in json_perms:
+				if isinstance(p, dict):
+					p = p.iterkeys().next()
+				elif p.startswith('http') or '*' in p:
+					continue
+				requested_perms.add(p)
 		return requested_perms
 
 
