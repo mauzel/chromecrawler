@@ -5,6 +5,7 @@ import sys, os, traceback
 sys.path.append("..")
 
 import json
+from abc import ABCMeta, abstractmethod
 
 import config_utils
 from dao.reportstore import *
@@ -13,7 +14,16 @@ from dao.reportstore import *
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class ChromePermission:
+
+class BaseSingleReport(object):
+	__metaclass__ = ABCMeta
+
+	@abstractmethod
+	def generate_report(self):
+		return vars(self)
+
+
+class ChromePermission(object):
 	"""Represents the 3-ple Chrome permissions as described by
 	V. Aravind and M Sethumadhavan.
 
@@ -26,7 +36,7 @@ class ChromePermission:
 		self.name = name
 
 	def __str__(self):
-		return vars(self)
+		return self.as_triple()
 
 	def __repr__(self):
 		return json.dumps(vars(self))
@@ -46,8 +56,11 @@ class ChromePermission:
 	def __hash__(self):
 		return hash(self.__repr__())
 
+	def as_triple(self):
+		return '.'.join(filter(None, (self.namespace, self.permission, self.name)))
 
-class LeastPrivilegeSingleReport:
+
+class LeastPrivilegeSingleReport(BaseSingleReport):
 
 	def __init__(self, app_id, web_url=None):
 		self.used_permissions = set()
@@ -70,8 +83,13 @@ class LeastPrivilegeSingleReport:
 			base_used_permissions.add(p.permission)
 		return self.requested_permissions.difference(base_used_permissions)
 
+	def generate_report(self):
+		report = super(LeastPrivilegeSingleReport, self).generate_report()
+		report['unused_permissions'] = self.violations()
+		return report
 
-class MaliciousFlowSingleReport:
+
+class MaliciousFlowSingleReport(BaseSingleReport):
 
 	def __init__(self, app_id, web_url=None):
 		self.web_url = web_url
@@ -84,8 +102,11 @@ class MaliciousFlowSingleReport:
 	def __str__(self):
 		return unicode('MaliciousFlowSingleReport: %s' % self.app_id)
 
+	def generate_report(self):
+		return super(MaliciousFlowSingleReport, self).generate_report()
 
-class JSUnpackAnalyzerSingleReport:
+
+class JSUnpackAnalyzerSingleReport(BaseSingleReport):
 
 	def __init__(self, app_id, web_url=None):
 		self.web_url = web_url
@@ -97,7 +118,10 @@ class JSUnpackAnalyzerSingleReport:
 	def __str__(self):
 		return unicode('JSUnpackAnalyzerSingleReport: %s' % self.app_id)
 
-class WepawetAnalyzerResult:
+	def generate_report(self):
+		return super(JSUnpackAnalyzerSingleReport, self).generate_report()
+
+class WepawetAnalyzerResult(BaseSingleReport):
 
 	def __init__(self, app_id, web_url=None):
 		self.web_url = web_url
@@ -106,4 +130,7 @@ class WepawetAnalyzerResult:
 
 	def __str__(self):
 		return unicode('WepawetAnalyzerResult: %s' % self.app_id)
+
+	def generate_report(self):
+		return super(WepawetAnalyzerResult, self).generate_report()
 

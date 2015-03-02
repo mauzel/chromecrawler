@@ -56,7 +56,7 @@ class WebStoreParser:
 		return parse_result
 
 
-class WebStoreDiscoverer:
+class WebStoreDiscoverer(object):
 
 	def reset_url_params(self):
 		self.url_params = collections.OrderedDict([

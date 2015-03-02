@@ -20,7 +20,7 @@ from synchronization.locking import *
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class GitRepositoryHandler:
+class GitRepositoryHandler(object):
 	git_user = "chromecrawler"
 	git_email = "test@test.com"
 
@@ -50,7 +50,7 @@ class GitRepositoryHandler:
 				logger.error(traceback.format_exc())
 
 
-class ChromePackageFetcher:
+class ChromePackageFetcher(object):
 	"""Class that abstracts away the act of:
 
 	- Getting the next app_id from the db
@@ -143,6 +143,7 @@ class ChromePackageFetcher:
 	def run(self, app_id=None):
 		# Fetch app
 		app_path, extract_path = self.fetch_app(app_id)
+		metadata = None
 
 		if app_path:
 			# Fetch metadata
@@ -152,10 +153,10 @@ class ChromePackageFetcher:
 			self.git_handler.init_repo(extract_path)
 			self.git_handler.commit(metadata, extract_path)
 
-		return extract_path
+		return metadata
 
 
-class MetadataFetcher:
+class MetadataFetcher(object):
 	"""Metadata fetching and storing functionality"""
 
 	def __init__ (self, base_url):
@@ -202,7 +203,7 @@ class MetadataFetcher:
 		return metadata
 
 
-class AppMetadata:
+class AppMetadata(object):
 	"""Contains name, url, version, price, priceCurrency, 
 	downloads, os, ratingValue, ratingCount and priceCurrency.
 	"""

@@ -36,6 +36,7 @@ if __name__ == '__main__':
 
 	git_root_dir = config['git_root_dir']
 	crx_root_dir = config['crx_root_dir']
+	reports_root_dir = config['reports_root_dir']
 
 	# Discovering (Crawling) happens separately
 
@@ -60,7 +61,7 @@ if __name__ == '__main__':
 	alphabet = AlphabetType[args.alphabet]
 
 	lock = ApplicationIdLocker(db=app_r, alphabet=alphabet)
-	store = ReportStore()
+	store = ReportStore(console=True, out_dir=reports_root_dir)
 
 	while True:
 		try:
@@ -68,11 +69,15 @@ if __name__ == '__main__':
 			# if not already in the set, else get another app_id
 			app_id = lock.set_lock_get_id()
 			if app_id:
-				# Fetch metadata for the app
-				if f.run(app_id):
+				# Fetch app and fetch metadata for the app
+				metadata = f.run(app_id)
+
+				if metadata:
+					reports = []
 					for analyzer in analyzers:
-						result = analyzer.analyze(app_id)
-						store.put(result)
+						reports.append(analyzer.analyze(app_id))
+
+					store.put(reports, vars(metadata))
 
 			logger.info('done with: %s' % app_id)
 		finally:

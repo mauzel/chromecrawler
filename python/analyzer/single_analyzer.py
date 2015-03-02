@@ -106,12 +106,12 @@ class LeastPrivilegeAnalyzer(BaseAnalyzer):
 			return None
 
 		report = LeastPrivilegeSingleReport(app_id)
+		report.web_url = bootstrap.web_url
 
 		if not bootstrap.json_perms:
 			return report
 
 		report.requested_permissions.update(bootstrap.perms)
-		report.web_url = bootstrap.web_url
 
 		# Iterate over every javascript file
 		for root, dirs, files in os.walk(bootstrap.app_dir):
@@ -198,12 +198,12 @@ class MaliciousFlowAnalyzer(BaseAnalyzer):
 			return None
 
 		report = MaliciousFlowSingleReport(app_id)
+		report.web_url = bootstrap.web_url
 
 		if not bootstrap.json_perms:
 			return report
 
 		report.requested_permissions.update(bootstrap.perms)
-		report.web_url = bootstrap.web_url
 
 		# Iterate over every javascript file
 		for root, dirs, files in os.walk(bootstrap.app_dir):
@@ -238,11 +238,12 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 		Results are returned as a dict keyed by return_key.
 		"""
 		result = {}
-		result[return_key] = []
+		result['url'] = return_key
+		result['result'] = []
 
 		def process_output(line):
 			if not line.startswith('\n'):
-				result[return_key].append(line)
+				result['result'].append(line)
 
 		os.chdir(self.jsunpack_dir)
 		p = python(self.cmd + ['-u', url], _out=process_output)
@@ -290,12 +291,9 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 			return None
 
 		report = JSUnpackAnalyzerSingleReport(app_id)
-
-		if not bootstrap.json_perms:
-			return report
+		report.web_url = bootstrap.web_url
 
 		report.requested_permissions.update(bootstrap.perms)
-		report.web_url = bootstrap.web_url
 
 		# Iterate over every javascript file
 		for root, dirs, files in os.walk(bootstrap.app_dir):
@@ -334,11 +332,12 @@ class WepawetAnalyzer(BaseAnalyzer):
 		are, since it takes time for them to process it or whatever.
 		"""
 		result = {}
-		result[return_key] = []
+		result['url'] = return_key
+		result['result'] = []
 
 		def process_output(line):
 			if not line.startswith('\n'):
-				result[return_key].append(line)
+				result['result'].append(line)
 
 		os.chdir(self.wepawet_dir)
 		p = python(self.cmd + ['-s', url], _out=process_output)
@@ -359,10 +358,6 @@ class WepawetAnalyzer(BaseAnalyzer):
 			return None
 
 		report = WepawetAnalyzerResult(app_id)
-
-		if not bootstrap.json_perms:
-			return report
-
 		report.web_url = bootstrap.web_url
 
 		# Perform extra analysis for hosted apps that have a web_url
