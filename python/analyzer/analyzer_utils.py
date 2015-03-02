@@ -4,7 +4,7 @@
 import sys, os, traceback
 sys.path.append("..")
 
-import json, logging
+import simplejson, logging
 
 
 logging.basicConfig(level=logging.INFO)
@@ -22,7 +22,7 @@ class AnalyzerUtils:
 		a Python dictionary.
 		"""
 		with open(os.path.join(app_dir, 'manifest.json'), 'r') as f:
-			manifest = json.loads(f.read())
+			manifest = simplejson.loads(f.read())
 			if 'permissions' in manifest:
 				return manifest['permissions']
 			else:
@@ -40,11 +40,12 @@ class AnalyzerUtils:
 		app within your browser.
 		"""
 		with open(os.path.join(app_dir, 'manifest.json'), 'r') as f:
+			mani = {}
 			try:
-				mani = json.loads(f.read())
+				file_contents = f.read()
+				mani = simplejson.loads(file_contents)
 			except ValueError, e:
 				logger.exception('Failed to read JSON from %s' % app_dir)
-				raise ValueError(e)
 
 			if 'app' in mani and 'launch' in mani['app']:
 				launch = mani['app']['launch']
