@@ -238,11 +238,12 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 		Results are returned as a dict keyed by return_key.
 		"""
 		result = {}
-		result[return_key] = []
+		result['url'] = return_key
+		result['result'] = []
 
 		def process_output(line):
 			if not line.startswith('\n'):
-				result[return_key].append(line)
+				result['result'].append(line)
 
 		os.chdir(self.jsunpack_dir)
 		p = python(self.cmd + ['-u', url], _out=process_output)
@@ -334,11 +335,12 @@ class WepawetAnalyzer(BaseAnalyzer):
 		are, since it takes time for them to process it or whatever.
 		"""
 		result = {}
-		result[return_key] = []
+		result['url'] = return_key
+		result['result'] = []
 
 		def process_output(line):
 			if not line.startswith('\n'):
-				result[return_key].append(line)
+				result['result'].append(line)
 
 		os.chdir(self.wepawet_dir)
 		p = python(self.cmd + ['-s', url], _out=process_output)

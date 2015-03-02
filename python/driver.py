@@ -60,7 +60,7 @@ if __name__ == '__main__':
 	alphabet = AlphabetType[args.alphabet]
 
 	lock = ApplicationIdLocker(db=app_r, alphabet=alphabet)
-	store = ReportStore()
+	store = ReportStore(console=True, out_dir=crx_root_dir)
 
 	while True:
 		try:
@@ -68,12 +68,15 @@ if __name__ == '__main__':
 			# if not already in the set, else get another app_id
 			app_id = lock.set_lock_get_id()
 			if app_id:
-				# Fetch metadata for the app
-				if f.run(app_id):
+				# Fetch app and fetch metadata for the app
+				metadata = f.run(app_id)
+
+				if metadata:
 					for analyzer in analyzers:
 						result = analyzer.analyze(app_id)
-						store.put(result)
+						store.put(result, vars(metadata))
 
 			logger.info('done with: %s' % app_id)
 		finally:
 			lock.unlock()
+		break

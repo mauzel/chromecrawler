@@ -143,6 +143,7 @@ class ChromePackageFetcher:
 	def run(self, app_id=None):
 		# Fetch app
 		app_path, extract_path = self.fetch_app(app_id)
+		metadata = None
 
 		if app_path:
 			# Fetch metadata
@@ -152,7 +153,7 @@ class ChromePackageFetcher:
 			self.git_handler.init_repo(extract_path)
 			self.git_handler.commit(metadata, extract_path)
 
-		return extract_path
+		return metadata
 
 
 class MetadataFetcher:
