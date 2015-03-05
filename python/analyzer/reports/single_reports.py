@@ -62,6 +62,8 @@ class ChromePermission(object):
 
 class LeastPrivilegeSingleReport(BaseSingleReport):
 
+	report_type = 'LeastPrivilegeSingleReport'
+
 	def __init__(self, app_id, web_url=None):
 		self.used_permissions = set()
 		self.requested_permissions = set()
@@ -91,6 +93,8 @@ class LeastPrivilegeSingleReport(BaseSingleReport):
 
 class MaliciousFlowSingleReport(BaseSingleReport):
 
+	report_type = 'MaliciousFlowSingleReport'
+
 	def __init__(self, app_id, web_url=None):
 		self.web_url = web_url
 		self.app_id = app_id
@@ -108,6 +112,8 @@ class MaliciousFlowSingleReport(BaseSingleReport):
 
 class JSUnpackAnalyzerSingleReport(BaseSingleReport):
 
+	report_type = 'JSUnpackAnalyzerSingleReport'
+
 	def __init__(self, app_id, web_url=None):
 		self.web_url = web_url
 		self.web_url_result = {}
@@ -122,6 +128,8 @@ class JSUnpackAnalyzerSingleReport(BaseSingleReport):
 		return super(JSUnpackAnalyzerSingleReport, self).generate_report()
 
 class WepawetAnalyzerResult(BaseSingleReport):
+
+	report_type = 'WepawetAnalyzerResult'
 
 	def __init__(self, app_id, web_url=None):
 		self.web_url = web_url

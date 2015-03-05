@@ -41,7 +41,7 @@ class ReportStore(BaseStore):
 		generated_reports = []
 
 		for report in reports:
-			generated_reports.append(report.generate_report())
+			generated_reports.append({ report.report_type: report.generate_report() })
 
 		json_reports = json.dumps(generated_reports, default=set_default, sort_keys=True, indent=4, separators=(',', ': '))
 
