@@ -9,6 +9,7 @@ from dao.dictsearchstore import DictionarySearchStore, DictionaryAttackKeyValue
 from crawler.discoverer import *
 from crawler.fetcher import *
 from analyzer.single_analyzer import *
+from analyzer.reports.single_reports import *
 
 
 logging.basicConfig(level=logging.INFO)
@@ -73,9 +74,16 @@ if __name__ == '__main__':
 				metadata = f.run(app_id)
 
 				if metadata:
-					reports = []
+					reports = [metadata]
 					for analyzer in analyzers:
-						reports.append(analyzer.analyze(app_id))
+						try:
+							reports.append(analyzer.analyze(app_id))
+						except TypeError, e:
+							logger.exception('TypeError during analyzing, possible issue is due to regex parsing failure in the slimit lexer')
+							reports.append(FailureReport(report_type=analyzer.__class__.__name__, message=e))
+						except UnicodeDecodeError, e:
+							logger.exception('UnicodeDecodeError during analyzing, possibly due to incorrectly encoded JSON')
+							reports.append(FailureReport(report_type=analyzer.__class__.__name__, message=e))
 
 					store.put(reports, vars(metadata))
 
