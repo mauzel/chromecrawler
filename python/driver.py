@@ -4,6 +4,7 @@
 import redis
 import argparse, json, config_utils
 import time
+from elasticsearch import Elasticsearch
 
 from dao.dictsearchstore import DictionarySearchStore, DictionaryAttackKeyValue
 from crawler.discoverer import *
@@ -61,8 +62,10 @@ if __name__ == '__main__':
 
 	alphabet = AlphabetType[args.alphabet]
 
+	es = Elasticsearch()
+
 	lock = ApplicationIdLocker(db=app_r, alphabet=alphabet)
-	store = ReportStore(console=True, out_dir=reports_root_dir)
+	store = ReportStore(console=False, out_dir=reports_root_dir, es=es, es_index='test-index')
 
 	while True:
 		try:
@@ -74,19 +77,22 @@ if __name__ == '__main__':
 				metadata = f.run(app_id)
 
 				if metadata:
-					reports = [metadata]
+					reports = { metadata.__type__: metadata }
 					for analyzer in analyzers:
+						report_name = analyzer.__class__.__name__
 						try:
-							reports.append(analyzer.analyze(app_id))
+							reports[report_name] = analyzer.analyze(app_id)
 						except TypeError, e:
 							logger.exception('TypeError during analyzing, possible issue is due to regex parsing failure in the slimit lexer')
-							reports.append(FailureReport(report_type=analyzer.__class__.__name__, message=e))
+							reports[report_name] = FailureReport(report_type=report_name, message=unicode(e))
 						except UnicodeDecodeError, e:
 							logger.exception('UnicodeDecodeError during analyzing, possibly due to incorrectly encoded JSON')
-							reports.append(FailureReport(report_type=analyzer.__class__.__name__, message=e))
+							reports[report_name] = FailureReport(report_type=report_name, message=unicode(e))
 
 					store.put(reports, vars(metadata))
 
 			logger.info('done with: %s' % app_id)
 		finally:
 			lock.unlock()
+
+		break

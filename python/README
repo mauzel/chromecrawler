@@ -7,6 +7,7 @@ pip:
 	lxml
 	beautifulsoup4
 	slimit (JS parser)
+	elasticsearch
 
 apt:
 	python-dev

@@ -42,6 +42,7 @@ class GitRepositoryHandler(object):
 		git.add("--all")
 		try:
 			git.commit("-m %s" % metadata.to_pretty_value())
+			git.tag("%s" % metadata.version)
 			logger.info('Committed all changes in: %s' % dir)
 			return True
 		except ErrorReturnCode_1:

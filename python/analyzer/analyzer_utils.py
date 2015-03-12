@@ -22,7 +22,7 @@ class AnalyzerUtils:
 		a Python dictionary.
 		"""
 		with open(os.path.join(app_dir, 'manifest.json'), 'r') as f:
-			manifest = simplejson.loads(f.read())
+			manifest = simplejson.loads(f.read(), strict=False)
 			if 'permissions' in manifest:
 				return manifest['permissions']
 			else:
@@ -43,7 +43,7 @@ class AnalyzerUtils:
 			mani = {}
 			try:
 				file_contents = f.read()
-				mani = simplejson.loads(file_contents)
+				mani = simplejson.loads(file_contents, strict=False)
 			except ValueError, e:
 				logger.exception('Failed to read JSON from %s' % app_dir)
 
