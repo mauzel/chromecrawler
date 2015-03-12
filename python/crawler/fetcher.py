@@ -42,12 +42,16 @@ class GitRepositoryHandler(object):
 		git.add("--all")
 		try:
 			git.commit("-m %s" % metadata.to_pretty_value())
+			git.tag("%s" % metadata.version)
 			logger.info('Committed all changes in: %s' % dir)
+			return True
 		except ErrorReturnCode_1:
 			if 'nothing to commit' in traceback.format_exc():
 				logger.info('Nothing to commit')
+				return False
 			else:
 				logger.error(traceback.format_exc())
+				return False
 
 
 class ChromePackageFetcher(object):
@@ -151,7 +155,8 @@ class ChromePackageFetcher(object):
 
 			# Commit to git repo
 			self.git_handler.init_repo(extract_path)
-			self.git_handler.commit(metadata, extract_path)
+			if not self.git_handler.commit(metadata, extract_path):
+				return None
 
 		return metadata
 
@@ -207,6 +212,7 @@ class AppMetadata(object):
 	"""Contains name, url, version, price, priceCurrency, 
 	downloads, os, ratingValue, ratingCount and priceCurrency.
 	"""
+	report_type = 'AppMetadata'
 
 	def __init__(self, app_id):
 		self.app_id = app_id
@@ -230,3 +236,6 @@ class AppMetadata(object):
 		"""Useful for debugging."""
 		import pprint
 		pprint.pprint(vars(self))
+
+	def generate_report(self):
+		return vars(self)

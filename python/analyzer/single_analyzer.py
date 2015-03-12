@@ -9,6 +9,7 @@ import json
 from slimit.lexer import Lexer
 from abc import ABCMeta, abstractmethod
 from sh import python
+import re
 
 import config_utils
 from dao.dictsearchstore import *
@@ -242,7 +243,7 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 		result['result'] = []
 
 		def process_output(line):
-			if not line.startswith('\n'):
+			if not line.startswith('\n') and not re.match('^\tsaved \d* bytes', line):
 				result['result'].append(line)
 
 		os.chdir(self.jsunpack_dir)
