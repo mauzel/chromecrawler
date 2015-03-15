@@ -27,21 +27,99 @@ def set_default(obj):
 	raise TypeError(type(obj))
 
 
+def json_dumps(to_serialize):
+	return json.dumps(to_serialize, default=set_default, sort_keys=True, indent=4, separators=(',', ': '))
+
+
+class ElasticSearchStoreConfiguration(object):
+
+	def __init__(self, es, index, doc_types):
+		self.es = es
+		self.index = index
+		self.doc_types = doc_types
+
+
 class ReportStore(BaseStore):
 
-	def __init__(self, console=False, out_dir=None, boto=None, es=None, es_index=None, es_doc_type='app-report'):
+	def __init__(self, console=False, out_dir=None, boto=None, es_conf=None):
 		self.console = console
 		self.out_dir = out_dir
 		self.boto = boto
 		if self.boto:
 			raise NotImplementedError('Putting reports to S3 not implemented yet')
 
-		if es and not es_index:
-			raise ValueError('No Elasticsearch index provided even though ES was provided')
+		self.es_conf = es_conf
 
-		self.es = es
-		self.es_index = es_index
-		self.es_doc_type = es_doc_type
+	def es_check_app_id_exists(self, es, index, doc_type, app_id):
+		"""Check if a report for this app_id already exists,
+		because we need to know if we should create a new
+		document, or if we need to update an existing one.
+		"""
+		try:
+			return es.search_exists(
+					index=index,
+					doc_type=doc_type,
+					body={ 'query': { 'term': {'_id': app_id } } }
+				)
+		except NotFoundError:
+			# Bizarre API, why throw an exception
+			# in a function that only checks if it exists?
+			return False
+
+	def put_to_elasticsearch(self, es_conf, metadata, generated_reports):
+		es = es_conf.es
+		es_index = es_conf.index
+		es_doc_types = es_conf.doc_types
+		app_id = metadata['app_id']
+		historical_doc_type = es_doc_types['historical']
+		current_doc_type = es_doc_types['current']
+
+		if not es_index:
+			raise ValueError('es index cannot be: %s' % es_index)
+
+		es_exists = self.es_check_app_id_exists(
+			es,
+			es_index,
+			historical_doc_type,
+			app_id
+		)
+
+		if not es_exists:
+			es_reports = { 'history': [ generated_reports ] }
+			es_body = json_dumps(es_reports)
+			res = es.index(
+				index=es_index,
+				doc_type=historical_doc_type,
+				id=app_id,
+				body=es_body,
+				refresh=True
+			)
+			logger.info('Elasticsearch put result: %s' % res['created'])
+		else:
+			es_reports = { 'history_update': generated_reports }
+			es_format = { 'params': es_reports, 'script': 'ctx._source.history += history_update' }
+			es_body = json_dumps(es_format)
+			res = es.update(
+				index=es_index,
+				doc_type=historical_doc_type,
+				id=app_id,
+				body=es_body,
+				refresh=True
+			)
+			logger.info('Elasticsearch update result: %s' % res)
+
+		current_meta = json_dumps({
+				'doc': generated_reports,
+				"doc_as_upsert" : True
+			})
+		res = es.update(
+			index=es_index,
+			doc_type=current_doc_type,
+			id=app_id,
+			body=current_meta,
+			refresh=True
+		)
+		logger.info('Elasticsearch update current report result: %s' % res)
 
 	def put(self, reports, metadata):
 		if not 'app_id' in metadata or not 'version' in metadata:
@@ -68,39 +146,8 @@ class ReportStore(BaseStore):
 		if self.console:
 			print json_reports
 
-		if self.es:
-			try:
-				es_exists = self.es.search_exists(
-						index=self.es_index,
-						doc_type=self.es_doc_type,
-						body={ 'query': { 'term': {'_id': metadata['app_id'] } } }
-					)
-			except NotFoundError:
-				es_exists = False
-
-			if not es_exists:
-				es_reports = { 'history': [generated_reports] }
-				es_body = json.dumps(es_reports, default=set_default, sort_keys=True, indent=4, separators=(',', ': '))
-				res = self.es.index(
-					index=self.es_index,
-					doc_type=self.es_doc_type,
-					id=metadata['app_id'],
-					body=es_body,
-					refresh=True
-				)
-				logger.info('Elasticsearch put result: %s' % res['created'])
-			else:
-				es_reports = { 'history_update': generated_reports }
-				es_format = { 'params': es_reports, 'script': 'ctx._source.history += history_update' }
-				es_body = json.dumps(es_format, default=set_default, sort_keys=True, indent=4, separators=(',', ': '))
-				res = self.es.update(
-					index=self.es_index,
-					doc_type=self.es_doc_type,
-					id=metadata['app_id'],
-					body=es_body,
-					refresh=True
-					)
-				logger.info('Elasticsearch update result: %s' % res)
+		if self.es_conf:
+			self.put_to_elasticsearch(self.es_conf, metadata, generated_reports)
 
 		# If output directory is supplied, save report to local disk
 		if self.out_dir and 'version' in metadata:

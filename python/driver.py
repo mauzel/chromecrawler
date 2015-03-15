@@ -62,10 +62,18 @@ if __name__ == '__main__':
 
 	alphabet = AlphabetType[args.alphabet]
 
-	es = Elasticsearch()
+	# Elasticsearch report settings to use in the ReportStore
+	es_conf = ElasticSearchStoreConfiguration(
+		es=Elasticsearch(),
+		index='test-index',
+		doc_types={
+			'historical': 'historical',
+			'current': 'current'
+		}
+	)
 
 	lock = ApplicationIdLocker(db=app_r, alphabet=alphabet)
-	store = ReportStore(console=False, out_dir=reports_root_dir, es=es, es_index='test-index')
+	store = ReportStore(console=False, out_dir=reports_root_dir, es_conf=es_conf)
 
 	while True:
 		try:
@@ -94,5 +102,3 @@ if __name__ == '__main__':
 			logger.info('done with: %s' % app_id)
 		finally:
 			lock.unlock()
-
-		break

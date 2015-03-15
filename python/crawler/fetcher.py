@@ -190,19 +190,19 @@ class MetadataFetcher(object):
 					elif meta_tag['itemprop'] == 'version':
 						metadata.version = meta_tag['content']
 					elif meta_tag['itemprop'] == 'price':
-						metadata.price = meta_tag['content'][1:]
+						metadata.price = float(meta_tag['content'][1:])
 					elif meta_tag['itemprop'] == 'interactionCount':
 						if(meta_tag['content'].find("UserDownloads") != -1):
-						 	metadata.downloads = meta_tag['content'][14:]
+						 	metadata.downloads = int(meta_tag['content'][14:].replace(',', ''))
 						else:
 						 	metadata.downloads = 0
 
 					elif meta_tag['itemprop'] == 'operatingSystems':
 						metadata.os = meta_tag['content']
 					elif meta_tag['itemprop'] == 'ratingValue':
-						metadata.rating_value = meta_tag['content']
+						metadata.rating_value = float(meta_tag['content'])
 					elif meta_tag['itemprop'] == 'ratingCount':
-						metadata.rating_count = meta_tag['content']
+						metadata.rating_count = int(meta_tag['content'].replace(',', ''))
 					elif meta_tag['itemprop'] == 'priceCurrency':
 						metadata.price_currency = meta_tag['content']
 		return metadata
@@ -225,6 +225,7 @@ class AppMetadata(object):
 		self.rating_value = None
 		self.rating_count = None
 		self.price_currency = None
+		self.crawl_time = config_utils.current_time_millis()
 
 	def to_pretty_value(self, indent=4, sort_keys=True):
 		instance_vars = vars(self)
