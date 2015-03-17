@@ -5,7 +5,7 @@ import sys
 sys.path.append('..')
 
 import os
-import redis, json
+import redis, json, simplejson
 from enum import Enum, unique
 import logging
 from elasticsearch.exceptions import NotFoundError
@@ -28,7 +28,11 @@ def set_default(obj):
 
 
 def json_dumps(to_serialize):
-	return json.dumps(to_serialize, default=set_default, sort_keys=True, indent=4, separators=(',', ': '))
+	try:
+		return json.dumps(to_serialize, default=set_default, sort_keys=True, indent=4, separators=(',', ': '))
+	except UnicodeDecodeError, e:
+		logger.error(e)
+		return simplejson.dumps(to_serialize, strict=False, default=set_default, sort_keys=True, indent=4, separators=(',', ': '))
 
 
 class ElasticSearchStoreConfiguration(object):
@@ -137,7 +141,7 @@ class ReportStore(BaseStore):
 				else:
 					logger.exception('Got a non-string report without generate_report()')
 
-		json_reports = json.dumps(generated_reports, default=set_default, sort_keys=True, indent=4, separators=(',', ': '))
+		json_reports = json_dumps(generated_reports)
 
 		# Put to S3 or something
 		if self.boto:

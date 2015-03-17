@@ -42,7 +42,7 @@ class GitRepositoryHandler(object):
 		git.add("--all")
 		try:
 			git.commit("-m %s" % metadata.to_pretty_value())
-			git.tag("%s" % metadata.version)
+			git.tag("%s" % metadata.version.replace('+', 'plus'))
 			logger.info('Committed all changes in: %s' % dir)
 			return True
 		except ErrorReturnCode_1:
@@ -193,7 +193,11 @@ class MetadataFetcher(object):
 						metadata.price = float(meta_tag['content'][1:])
 					elif meta_tag['itemprop'] == 'interactionCount':
 						if(meta_tag['content'].find("UserDownloads") != -1):
-						 	metadata.downloads = int(meta_tag['content'][14:].replace(',', ''))
+							downloads = meta_tag['content'][14:].replace(',', '')
+							if downloads.endswith('+'):
+								metadata.downloads = downloads
+							else:
+						 		metadata.downloads = int(downloads)
 						else:
 						 	metadata.downloads = 0
 

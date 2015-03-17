@@ -55,7 +55,7 @@ if __name__ == '__main__':
 	# Chained list of analyzers
 	analyzers = [
 		LeastPrivilegeAnalyzer(git_dir=git_root_dir),
-		MaliciousFlowAnalyzer(git_dir=git_root_dir),
+		#MaliciousFlowAnalyzer(git_dir=git_root_dir),
 		JSUnpackAnalyzer(git_dir=git_root_dir),
 		WepawetAnalyzer(git_dir=git_root_dir)
 	]
@@ -100,5 +100,7 @@ if __name__ == '__main__':
 					store.put(reports, vars(metadata))
 
 			logger.info('done with: %s' % app_id)
+			import time
+			time.sleep(3)
 		finally:
 			lock.unlock()

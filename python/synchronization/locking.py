@@ -54,7 +54,7 @@ class ApplicationIdLocker(object):
 	def need_fetch(self, value):
 		"""Checks if the app_id timestamp is 0 (never fetched) or old."""
 		value = int(value)
-		return value == 0 or value < config_utils.current_time_millis() - 10000000
+		return value == 0 or value < config_utils.current_time_millis() - 604800000
 
 	def set_lock_get_id(self):
 		"""Get an app_id that isn't currently locked for fetching."""

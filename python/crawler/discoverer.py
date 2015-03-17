@@ -66,7 +66,7 @@ class WebStoreDiscoverer(object):
 			('mce', 'rlb,svp,atf,c3d,ncr,ctm,ac,hot,fcf'),
 			('count', '52'),
 			('token', ''),
-			('category', 'extensions'),
+			('category', 'apps'),
 			('searchTerm', ''),
 			('sortBy', '0'),
 			('container', 'CHROME'),
