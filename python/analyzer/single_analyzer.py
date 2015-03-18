@@ -8,7 +8,7 @@ from itertools import islice
 import json
 from slimit.lexer import Lexer
 from abc import ABCMeta, abstractmethod
-from sh import python
+from sh import python, TimeoutException
 import re
 
 import config_utils
@@ -247,8 +247,11 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 				result['result'].append(line)
 
 		os.chdir(self.jsunpack_dir)
-		p = python(self.cmd + ['-u', url], _out=process_output)
-		p.wait()
+		try:
+			p = python(self.cmd + ['-u', url], _out=process_output, _timeout=560)
+			p.wait()
+		except TimeoutException, e:
+			logger.error('Took way too long to scan a web url: %s.' % url, e)
 		logger.info('Scanned URL: %s' % url)
 
 		return result
@@ -278,8 +281,11 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 				result['analysis'].append(line)
 
 		os.chdir(self.jsunpack_dir)
-		p = python(self.cmd + [js_fn], _out=process_output)
-		p.wait()
+		try:
+			p = python(self.cmd + [js_fn], _out=process_output, _timeout=560)
+			p.wait()
+		except TimeoutException, e:
+			logger.error('Took way too long to scan a single JS file: %s' % js_fn, e)
 
 		return result
 

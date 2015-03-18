@@ -55,17 +55,25 @@ if __name__ == '__main__':
 	# Chained list of analyzers
 	analyzers = [
 		LeastPrivilegeAnalyzer(git_dir=git_root_dir),
-		MaliciousFlowAnalyzer(git_dir=git_root_dir),
+		#MaliciousFlowAnalyzer(git_dir=git_root_dir),
 		JSUnpackAnalyzer(git_dir=git_root_dir),
 		WepawetAnalyzer(git_dir=git_root_dir)
 	]
 
 	alphabet = AlphabetType[args.alphabet]
 
-	es = Elasticsearch()
+	# Elasticsearch report settings to use in the ReportStore
+	es_conf = ElasticSearchStoreConfiguration(
+		es=Elasticsearch(),
+		index='test-index',
+		doc_types={
+			'historical': 'historical',
+			'current': 'current'
+		}
+	)
 
 	lock = ApplicationIdLocker(db=app_r, alphabet=alphabet)
-	store = ReportStore(console=False, out_dir=reports_root_dir, es=es, es_index='test-index')
+	store = ReportStore(console=False, out_dir=reports_root_dir, es_conf=es_conf)
 
 	while True:
 		try:
@@ -92,7 +100,7 @@ if __name__ == '__main__':
 					store.put(reports, vars(metadata))
 
 			logger.info('done with: %s' % app_id)
+			import time
+			time.sleep(3)
 		finally:
 			lock.unlock()
-
-		break
