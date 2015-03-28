@@ -3,9 +3,9 @@
     "fetch_point": "http://clients2.google.com/service/update2/crx",
     "detail_point": "https://chrome.google.com/webstore/ajax/detail",
     "detail_page": "https://chrome.google.com/webstore/detail/",
-    "git_root_dir": "/mnt/project-dir/e6118-git/",
-    "crx_root_dir": "/mnt/project-dir/e6118-crx/",
-    "reports_root_dir": "/mnt/project-dir/e6118-reports/",
+    "git_root_dir": "/mnt/raid0/jsk2210/e6118-git/",
+    "crx_root_dir": "/mnt/raid0/jsk2210/e6118-crx/",
+    "reports_root_dir": "/mnt/raid0/jsk2210/e6118-reports/",
     "dictionary_config": {
         "host": "localhost",
         "port": "6379",

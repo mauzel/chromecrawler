@@ -32,7 +32,7 @@ def json_dumps(to_serialize):
 		return json.dumps(to_serialize, default=set_default, sort_keys=True, indent=4, separators=(',', ': '))
 	except UnicodeDecodeError, e:
 		logger.error(e)
-		return simplejson.dumps(to_serialize, strict=False, default=set_default, sort_keys=True, indent=4, separators=(',', ': '))
+		return simplejson.dumps(to_serialize, default=set_default, sort_keys=True, indent=4, separators=(',', ': '))
 
 
 class ElasticSearchStoreConfiguration(object):

@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class GitRepositoryHandler(object):
-	git_user = "chromecrawler"
+	git_user = "chrome crawler"
 	git_email = "test@test.com"
 
 	def __init__(self):
@@ -42,7 +42,7 @@ class GitRepositoryHandler(object):
 		git.add("--all")
 		try:
 			git.commit("-m %s" % metadata.to_pretty_value())
-			git.tag("%s" % metadata.version.replace('+', 'plus'))
+			git.tag("%s" % metadata.version.replace('+', 'plus').replace(' ', ''))
 			logger.info('Committed all changes in: %s' % dir)
 			return True
 		except ErrorReturnCode_1:
@@ -195,7 +195,7 @@ class MetadataFetcher(object):
 						if(meta_tag['content'].find("UserDownloads") != -1):
 							downloads = meta_tag['content'][14:].replace(',', '')
 							if downloads.endswith('+'):
-								metadata.downloads = downloads
+								metadata.downloads = downloads.replace('+', '')
 							else:
 						 		metadata.downloads = int(downloads)
 						else:

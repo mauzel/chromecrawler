@@ -10,15 +10,21 @@ class ElasticSearchStatAnalyzer:
 		self.def_index = "test-index"
 		self.type_current = "current"
 		self.type_historical = "historical"
-		self.search_granularity = 100
+		self.search_granularity = 500
 		self.app_ids=[]
+		self.wepawet_suspicious_app_ids=[]
 		self.es = Elasticsearch()
-		res = self.es.search(index = self.def_index, doc_type = self.type_current, size=self.search_granularity)#, body = {"query": {"match_all": {}}})
-		self.app_count = res['hits']['total']
 
-		for hit in res['hits']['hits']:
-			self.app_ids.append(hit['_id'])
-		self.find_total_apps()	
+		self.find_total_apps()
+		begin = 0
+		while(begin+self.search_granularity <= self.total_apps):
+			print "Fetching " + str(begin) + " to " + str(begin+self.search_granularity)
+			res = self.es.search(index = self.def_index, doc_type = self.type_current, from_ = begin, size = self.search_granularity)# body = {"query": {"match_all": {}}})
+			self.app_count = res['hits']['total']
+
+			for hit in res['hits']['hits']:
+				self.app_ids.append(hit['_id'])
+			begin = begin + self.search_granularity
 
 	def find_total_apps(self):
 		res = self.es.search(index = self.def_index, doc_type = self.type_current, body = {"query": {"match_all": {}}})
@@ -28,8 +34,9 @@ class ElasticSearchStatAnalyzer:
 	def correlate_rating_unused_perm(self):
 		
 		rating_unused_perm_histogram={'0': '0', '0.5': '0', '1.0': '0', '1.5': '0', '2.0': '0', '2.5': '0', '3.0': '0', '3.5': '0', '4.0':'0', '4.5':'0', '5.0':'0'}
-
+		count = 0
 		for app_id in self.app_ids:
+			count = count+1
 			res = self.es.get(index = self.def_index, doc_type = self.type_current, id=app_id)
 			round_up = 0.5 * math.ceil(2 * res['_source']['AppMetadata']['rating_value'])
 			try:
@@ -41,7 +48,7 @@ class ElasticSearchStatAnalyzer:
 			except KeyError:
 				print "KeyError"
 			
-
+		print count
 		print rating_unused_perm_histogram	
 
 	def count_privilege_violations(self):
@@ -81,7 +88,7 @@ class ElasticSearchStatAnalyzer:
 
 	def wepawet_analysis(self):
 		wepawet_analysis_results = {}
-
+		
 		for app_id in self.app_ids:
 			res = self.es.get(index = self.def_index, doc_type = self.type_current, id=app_id)
 			try:
@@ -100,7 +107,10 @@ class ElasticSearchStatAnalyzer:
 									wepawet_analysis_results[cur_result] = wepawet_analysis_results[cur_result] + 1
 								else:
 									wepawet_analysis_results[cur_result] = 1
-
+								
+								if str(cur_result) == "suspicious":
+									self.wepawet_suspicious_app_ids.append(app_id)
+										
 						#print wepawet_result
 			except KeyError:
 				print "KeyError"
@@ -118,3 +128,5 @@ if __name__ == "__main__":
 	# es.count_privilege_violations()
 	# es.top_rated_applications(100,200)
 	es.wepawet_analysis()
+	print "Analysis done"
+	print es.wepawet_suspicious_app_ids

@@ -8,7 +8,7 @@ from itertools import islice
 import json
 from slimit.lexer import Lexer
 from abc import ABCMeta, abstractmethod
-from sh import python, TimeoutException
+from sh import python, TimeoutException, nice
 import re
 
 import config_utils
@@ -68,7 +68,7 @@ class LeastPrivilegeAnalyzer(BaseAnalyzer):
 			it = l.__iter__()
 
 			for token in l:
-				if token.type == 'ID' and token.value == 'chrome':
+				if token and token.type == 'ID' and token.value == 'chrome':
 					permission = None
 					name = None
 
@@ -165,7 +165,7 @@ class MaliciousFlowAnalyzer(BaseAnalyzer):
 			it = l.__iter__()
 
 			for token in l:
-				if token.type == 'ID' and token.value == 'window':
+				if token and token.type == 'ID' and token.value == 'window':
 					content = None
 					document = None
 
@@ -222,9 +222,12 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 	malicious Javascript and URLs with malicious JavaScript.
 	"""
 
+	nice = '15'
 	jsunpack_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../libs/jsunpack_n/'))
 	jsunpack_py = os.path.join(jsunpack_dir, 'jsunpackn.py')
 	cmd = [
+		'-%s' % nice,
+		'python',
 		jsunpack_py,
 		'-v', # Verbose
 		'-a' # Follow URLs that are found
@@ -248,7 +251,7 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 
 		os.chdir(self.jsunpack_dir)
 		try:
-			p = python(self.cmd + ['-u', url], _out=process_output, _timeout=560)
+			p = nice(self.cmd + ['-u', url], _out=process_output, _timeout=560)
 			p.wait()
 		except TimeoutException, e:
 			logger.error('Took way too long to scan a web url: %s.' % url, e)
@@ -282,7 +285,7 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 
 		os.chdir(self.jsunpack_dir)
 		try:
-			p = python(self.cmd + [js_fn], _out=process_output, _timeout=560)
+			p = nice(self.cmd + [js_fn], _out=process_output, _timeout=560)
 			p.wait()
 		except TimeoutException, e:
 			logger.error('Took way too long to scan a single JS file: %s' % js_fn, e)
@@ -320,9 +323,12 @@ class JSUnpackAnalyzer(BaseAnalyzer):
 class WepawetAnalyzer(BaseAnalyzer):
 	"""Analyzer that uses online Wepawet analyzer."""
 
+	nice = '15'
 	wepawet_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../libs/wepawet/'))
 	wepawet_py = os.path.join(wepawet_dir, 'submit_to_wepawet.py')
 	cmd = [
+		'-%s' % nice,
+		'python',
 		wepawet_py,
 		'-v', # Verbose
 	]
@@ -347,7 +353,7 @@ class WepawetAnalyzer(BaseAnalyzer):
 				result['result'].append(line)
 
 		os.chdir(self.wepawet_dir)
-		p = python(self.cmd + ['-s', url], _out=process_output)
+		p = nice(self.cmd + ['-s', url], _out=process_output)
 		p.wait()
 		logger.info('Scanned URL: %s' % url)
 
