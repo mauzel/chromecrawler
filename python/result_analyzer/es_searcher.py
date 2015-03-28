@@ -3,7 +3,7 @@ import json
 from pprint import pprint
 from operator import itemgetter
 import math
-
+import submit_to_wepawet
 class ElasticSearchStatAnalyzer:
 
 	def __init__(self):
@@ -78,8 +78,43 @@ class ElasticSearchStatAnalyzer:
 
 		print app_id_ratings
 
+
+	def wepawet_analysis(self):
+		wepawet_analysis_results = {}
+
+		for app_id in self.app_ids:
+			res = self.es.get(index = self.def_index, doc_type = self.type_current, id=app_id)
+			try:
+				hash_with_tag = res['_source']['WepawetAnalyzer']['web_url_result']['result'][2]
+				for item in hash_with_tag.split("</hash>"):
+	   				if "<hash>" in item:
+						cur_hash = item [ item.find("<hash>")+len("<hash>") : ]
+						print cur_hash
+						#print item [ item.find("<hash>")+len("<hash>") : ]
+						wepawet_result = submit_to_wepawet.wepawet_query(cur_hash)
+						for result in wepawet_result.split("</result>"):
+							if "<result>" in result:
+								cur_result = result[result.find("<result>") + len("<result>") :]
+								print cur_result
+								if cur_result in wepawet_analysis_results:
+									wepawet_analysis_results[cur_result] = wepawet_analysis_results[cur_result] + 1
+								else:
+									wepawet_analysis_results[cur_result] = 1
+
+						#print wepawet_result
+			except KeyError:
+				print "KeyError"
+				if "KeyError" in wepawet_analysis_results:
+					wepawet_analysis_results["KeyError"] = wepawet_analysis_results["KeyError"] + 1
+				else:
+					wepawet_analysis_results["KeyError"] = 1
+
+		print wepawet_analysis_results		
+
+
 if __name__ == "__main__":
 	es = ElasticSearchStatAnalyzer()
-	es.correlate_rating_unused_perm()
-	es.count_privilege_violations()
-	es.top_rated_applications(100,200)
+	# es.correlate_rating_unused_perm()
+	# es.count_privilege_violations()
+	# es.top_rated_applications(100,200)
+	es.wepawet_analysis()
