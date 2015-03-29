@@ -17,7 +17,7 @@ class ElasticSearchStatAnalyzer:
 
 		self.find_total_apps()
 		begin = 0
-		while(begin+self.search_granularity <= self.total_apps):
+		while(begin <= self.total_apps):
 			print "Fetching " + str(begin) + " to " + str(begin+self.search_granularity)
 			res = self.es.search(index = self.def_index, doc_type = self.type_current, from_ = begin, size = self.search_granularity)# body = {"query": {"match_all": {}}})
 			self.app_count = res['hits']['total']
@@ -69,9 +69,45 @@ class ElasticSearchStatAnalyzer:
 			except KeyError:
 				print "KeyError"
 
-		print unused_privilege_count
+		
+		for unused_privilege in unused_privilege_count:
+			print unused_privilege + " - " + str(unused_privilege_count[unused_privilege])
+
+		#print unused_privilege_count
 		return
-	
+
+
+	def num_of_unused_privileges(self):
+		number_of_unused_privileges={}
+
+		for app_id in self.app_ids:
+			res = self.es.get(index = self.def_index, doc_type = self.type_current, id = app_id)
+			try:
+				if not res['_source']['LeastPrivilegeAnalyzer']['unused_permissions']:
+					cur_num_of_violations = "0"
+					if cur_num_of_violations in number_of_unused_privileges:
+						number_of_unused_privileges[cur_num_of_violations] = number_of_unused_privileges[cur_num_of_violations] + 1
+					else:
+						number_of_unused_privileges[cur_num_of_violations] = 1
+					continue
+				else:
+					cur_num_of_violations = str(len(res['_source']['LeastPrivilegeAnalyzer']['unused_permissions']))
+					print cur_num_of_violations
+					if cur_num_of_violations in number_of_unused_privileges:
+						number_of_unused_privileges[cur_num_of_violations] = number_of_unused_privileges[cur_num_of_violations] + 1
+					else:
+						number_of_unused_privileges[cur_num_of_violations] = 1					
+
+
+			except KeyError:
+				if "KeyError" in number_of_unused_privileges:
+					number_of_unused_privileges["KeyError"] = number_of_unused_privileges["KeyError"] + 1
+				else:
+					number_of_unused_privileges["KeyError"] = 1
+				print "KeyError"
+
+		for num in number_of_unused_privileges:
+			print num + " - " + str(number_of_unused_privileges[num])
 	def top_rated_applications(self, min_downloads, max_downloads):
 		app_id_ratings={}
 
@@ -125,8 +161,10 @@ class ElasticSearchStatAnalyzer:
 if __name__ == "__main__":
 	es = ElasticSearchStatAnalyzer()
 	# es.correlate_rating_unused_perm()
-	# es.count_privilege_violations()
+	#es.count_privilege_violations()
 	# es.top_rated_applications(100,200)
-	es.wepawet_analysis()
-	print "Analysis done"
-	print es.wepawet_suspicious_app_ids
+	#es.wepawet_analysis()
+	#print "Analysis done"
+	#print es.wepawet_suspicious_app_ids
+
+	es.num_of_unused_privileges()
