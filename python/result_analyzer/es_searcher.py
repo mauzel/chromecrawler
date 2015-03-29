@@ -4,6 +4,7 @@ from pprint import pprint
 from operator import itemgetter
 import math
 import submit_to_wepawet
+
 class ElasticSearchStatAnalyzer:
 
 	def __init__(self):
@@ -108,6 +109,62 @@ class ElasticSearchStatAnalyzer:
 
 		for num in number_of_unused_privileges:
 			print num + " - " + str(number_of_unused_privileges[num])
+
+	
+	def num_violations_app_rating(self):
+		number_of_unused_privileges = {}
+		unused_privilege_count_rating_sum = {}
+		for app_id in self.app_ids:
+			res = self.es.get(index = self.def_index, doc_type = self.type_current, id = app_id)
+			try:
+				if not res['_source']['LeastPrivilegeAnalyzer']['unused_permissions']:
+					cur_num_of_violations = "0"
+					if cur_num_of_violations in number_of_unused_privileges:
+						number_of_unused_privileges[cur_num_of_violations] = number_of_unused_privileges[cur_num_of_violations] + 1
+					else:
+						number_of_unused_privileges[cur_num_of_violations] = 1
+					
+					cur_rating = res['_source']['AppMetadata']['rating_value']
+
+					if cur_num_of_violations in unused_privilege_count_rating_sum:
+						unused_privilege_count_rating_sum[cur_num_of_violations] = unused_privilege_count_rating_sum[cur_num_of_violations] + cur_rating
+					else:
+						unused_privilege_count_rating_sum[cur_num_of_violations] = cur_rating
+
+					continue
+				else:
+					cur_num_of_violations = str(len(res['_source']['LeastPrivilegeAnalyzer']['unused_permissions']))
+					print cur_num_of_violations
+					if cur_num_of_violations in number_of_unused_privileges:
+						number_of_unused_privileges[cur_num_of_violations] = number_of_unused_privileges[cur_num_of_violations] + 1
+					else:
+						number_of_unused_privileges[cur_num_of_violations] = 1					
+
+					cur_rating = res['_source']['AppMetadata']['rating_value']
+
+					if cur_num_of_violations in unused_privilege_count_rating_sum:
+						unused_privilege_count_rating_sum[cur_num_of_violations] = unused_privilege_count_rating_sum[cur_num_of_violations] + cur_rating
+					else:
+						unused_privilege_count_rating_sum[cur_num_of_violations] = cur_rating	
+
+			except KeyError:
+				if "KeyError" in number_of_unused_privileges:
+					number_of_unused_privileges["KeyError"] = number_of_unused_privileges["KeyError"] + 1
+				else:
+					number_of_unused_privileges["KeyError"] = 1
+				print "KeyError"
+
+		#for num in number_of_unused_privileges:
+		#	print num + " - " + str(number_of_unused_privileges[num])		
+
+		print "Average ratings with respect to violations"
+
+		for num in number_of_unused_privileges:
+			cur_avg_rating = unused_privilege_count_rating_sum[num] / number_of_unused_privileges[num]
+			print num + " - " + str(cur_avg_rating)
+
+
+
 	def top_rated_applications(self, min_downloads, max_downloads):
 		app_id_ratings={}
 
