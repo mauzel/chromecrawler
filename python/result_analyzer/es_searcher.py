@@ -152,6 +152,13 @@ class ElasticSearchStatAnalyzer:
 					number_of_unused_privileges["KeyError"] = number_of_unused_privileges["KeyError"] + 1
 				else:
 					number_of_unused_privileges["KeyError"] = 1
+
+				cur_rating = res['_source']['AppMetadata']['rating_value']
+				if "KeyError" in unused_privilege_count_rating_sum:
+					unused_privilege_count_rating_sum["KeyError"] = unused_privilege_count_rating_sum["KeyError"] + cur_rating
+
+				else:
+					unused_privilege_count_rating_sum["KeyError"] = cur_rating	
 				print "KeyError"
 
 		#for num in number_of_unused_privileges:
@@ -224,4 +231,6 @@ if __name__ == "__main__":
 	#print "Analysis done"
 	#print es.wepawet_suspicious_app_ids
 
-	es.num_of_unused_privileges()
+	#es.num_of_unused_privileges()
+
+	es.num_violations_app_rating()
