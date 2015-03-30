@@ -27,6 +27,7 @@ parser.add_argument('--minimum-tokens', dest='min_tokens', type=int, default=50,
 parser.add_argument('--format', dest='format', default='csv', help='output format for cpd, default is csv')
 parser.add_argument('--es-index', dest='es_index', default='test-index', help='elasticsearch index to use, default is test-index')
 parser.add_argument('--es-doc-type', dest='es_doc_type', default='cpd', help='elasticsearch document type name to use, default is cpd')
+parser.add_argument('--java-cp', dest='java_cp', default='', help='classpath to use when running java')
 
 
 class CpdCsvResult(object):
@@ -203,7 +204,7 @@ if __name__ == '__main__':
 	if args.source_dir:
 		git_root_dir = args.source_dir
 
-	java_classpath = ':/home/sena/temp/pmd-bin-5.2.3/lib/asm-5.0.3.jar:/home/sena/temp/pmd-bin-5.2.3/lib/commons-io-2.4.jar:/home/sena/temp/pmd-bin-5.2.3/lib/commons-lang3-3.3.2.jar:/home/sena/temp/pmd-bin-5.2.3/lib/javacc-5.0.jar:/home/sena/temp/pmd-bin-5.2.3/lib/jaxen-1.1.4.jar:/home/sena/temp/pmd-bin-5.2.3/lib/jcommander-1.35.jar:/home/sena/temp/pmd-bin-5.2.3/lib/pmd-core-5.2.3.jar:/home/sena/temp/pmd-bin-5.2.3/lib/pmd-cpp-5.2.3.jar:/home/sena/temp/pmd-bin-5.2.3/lib/pmd-cs-5.2.3.jar:/home/sena/temp/pmd-bin-5.2.3/lib/pmd-fortran-5.2.3.jar:/home/sena/temp/pmd-bin-5.2.3/lib/pmd-go-5.2.3.jar:/home/sena/temp/pmd-bin-5.2.3/lib/pmd-java-5.2.3.jar:/home/sena/temp/pmd-bin-5.2.3/lib/pmd-javascript-5.2.3.jar:/home/sena/temp/pmd-bin-5.2.3/lib/pmd-jsp-5.2.3.jar:/home/sena/temp/pmd-bin-5.2.3/lib/pmd-php-5.2.3.jar:/home/sena/temp/pmd-bin-5.2.3/lib/pmd-plsql-5.2.3.jar:/home/sena/temp/pmd-bin-5.2.3/lib/pmd-ruby-5.2.3.jar:/home/sena/temp/pmd-bin-5.2.3/lib/pmd-vm-5.2.3.jar:/home/sena/temp/pmd-bin-5.2.3/lib/pmd-xml-5.2.3.jar:/home/sena/temp/pmd-bin-5.2.3/lib/rhino-1.7R4.jar:/home/sena/temp/pmd-bin-5.2.3/lib/saxon-9.1.0.8-dom.jar:/home/sena/temp/pmd-bin-5.2.3/lib/saxon-9.1.0.8.jar:/home/sena/temp/pmd-bin-5.2.3/lib/xercesImpl-2.11.0.jar:/home/sena/temp/pmd-bin-5.2.3/lib/xml-apis-1.4.01.jar'
+	java_classpath = args.java_cp
 
 	cpd = CpdRunner(jvm_cp=java_classpath, min_tokens=args.min_tokens, cpd_format=args.format)
 
