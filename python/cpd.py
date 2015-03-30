@@ -92,7 +92,8 @@ class CpdRunner(object):
 
 	CMD = 'java'
 	NICE = '-15'
-	JVM_MEM = '-Xmx512m'
+	JVM_MEM = '-Xmx4096m'
+	JVM_STACK = '-Xss1024m'
 	JV_CP_ARG = '-cp'
 	CPD_CLASS_NAME = 'net.sourceforge.pmd.cpd.CPD'
 	CPD_FILES_ARG = '--files'
@@ -101,7 +102,7 @@ class CpdRunner(object):
 	CPD_FORMAT_ARG = '--format'
 
 	def __init__(self, jvm_cp, min_tokens=50, lang='ecmascript', cpd_format='text'):
-		self.cmd = [self.NICE, self.CMD, self.JVM_MEM, self.JV_CP_ARG, jvm_cp, self.CPD_CLASS_NAME]
+		self.cmd = [self.NICE, self.CMD, self.JVM_MEM, self.JVM_STACK, self.JV_CP_ARG, jvm_cp, self.CPD_CLASS_NAME]
 		self.min_tokens = unicode(min_tokens)
 		self.lang = lang
 		self.format = cpd_format
