@@ -28,6 +28,7 @@ parser.add_argument('--format', dest='format', default='csv', help='output forma
 parser.add_argument('--es-index', dest='es_index', default='test-index', help='elasticsearch index to use, default is test-index')
 parser.add_argument('--es-doc-type', dest='es_doc_type', default='cpd', help='elasticsearch document type name to use, default is cpd')
 parser.add_argument('--java-cp', dest='java_cp', default='', help='classpath to use when running java')
+parser.add_argument('--es-no-update', dest='es_no_update', default=False, action='store_true', help='if provided, will not append results to existing cpd reports (this helps for restarting)')
 
 
 class CpdCsvResult(object):
@@ -151,7 +152,7 @@ def es_check_app_id_exists(es, index, doc_type, app_id):
 		return False
 
 
-def put_to_es(es, es_index, doc_type, app_id, cpd_analysis):
+def put_to_es(es, es_index, doc_type, app_id, cpd_analysis, update=True):
 	es_exists = es_check_app_id_exists(
 		es,
 		es_index,
@@ -170,7 +171,7 @@ def put_to_es(es, es_index, doc_type, app_id, cpd_analysis):
 			refresh=True
 		)
 		logger.info('Elasticsearch put result: %s' % res['created'])
-	else:
+	elif update:
 		es_reports = { 'cpd_results_update': cpd_analysis }
 		es_format = { 'params': es_reports, 'script': 'ctx._source.cpd_results += cpd_results_update' }
 		es_body = json_dumps(es_format)
@@ -220,6 +221,20 @@ if __name__ == '__main__':
 				app_ids.remove(other_id)
 				logger.info('Skipping comparing with self.')
 				continue
+
+			this_doc_id = '_'.join((app_id, other_id))
+
+			es_exists = es_check_app_id_exists(
+				es,
+				es_index,
+				es_doc_type,
+				this_doc_id
+			)
+
+			if es_exists and args.es_no_update:
+				logger.info('Skipping %s because es_no_update=%s and a document already exists' % (this_doc_id, args.es_no_update))
+				continue
+
 			other_abs_path = os.path.join(git_root_dir, other_id)
 			result = cpd.run_cpd(abs_path, other_abs_path)
 
@@ -237,12 +252,11 @@ if __name__ == '__main__':
 				final_result['minimum_tokens'] = args.min_tokens
 				final_result['results'] = results
 				final_result['timestamp'] = curr_time
-				document_name = '_'.join((app_id, other_id))
 
 				summary = {}
 				summary['app_id_1'] = app_id
 				summary['app_id_2'] = other_id
-				summary['document_id'] = document_name
+				summary['document_id'] = this_doc_id
 				summary['timestamp'] = curr_time
 				summary['duplications_found'] = len(results)
 				summary['duplicated_lines_count'] = 0
@@ -254,7 +268,7 @@ if __name__ == '__main__':
 					summary['duplicated_lines_count'] += r.lines
 					summary['duplication_occurrences_count'] += r.occurrences
 
-				put_to_es(es, es_index, es_doc_type, document_name, final_result)
+				put_to_es(es, es_index, es_doc_type, this_doc_id, final_result)
 				put_to_es(es, es_index, es_doc_type, app_id, summary)
 				put_to_es(es, es_index, es_doc_type, other_id, summary)
 
