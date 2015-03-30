@@ -68,9 +68,15 @@ class CpdCsvConverter(object):
 		tokens = row[self.TOKENS]
 		occurrences = row[self.OCCURRENCES]
 
-		result = CpdCsvResult(lines=lines,
-			tokens=tokens,
-			occurrences=occurrences)
+		try:
+			result = CpdCsvResult(lines=lines,
+				tokens=tokens,
+				occurrences=occurrences)
+		except ValueError, e:
+			logger.error('%s' % (row))
+			result = CpdCsvResult(lines=-1,
+				tokens=-1,
+				occurrences=-1)
 
 		offset_for_rel = len(self.root_dir) + 1
 
@@ -84,7 +90,8 @@ class CpdCsvConverter(object):
 
 			except ValueError, e:
 				logger.error('%s,%s' % (line, fn))
-				logger.exception(','.join(lines_and_files))
+				logger.error(','.join(lines_and_files))
+				result.files.append({ 'file': fn[offset_for_rel:], 'line': -1 })
 
 		return result
 
