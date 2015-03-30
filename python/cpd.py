@@ -33,23 +33,15 @@ parser.add_argument('--java-cp', dest='java_cp', default='', help='classpath to 
 class CpdCsvResult(object):
 
 	def __init__(self, lines=0, tokens=0, occurrences=0):
-		self.lines = lines
-		self.tokens = tokens
-		self.occurrences = occurrences
+		self.lines = int(lines)
+		self.tokens = int(tokens)
+		self.occurrences = int(occurrences)
 		self.files = []
-
-	def __unicode__(self):
-		return json.dumps(vars(self), indent=4, sort_keys=True, default=cplaf_default)
-
-	def __str__(self):
-		return json.dumps(vars(self), indent=4, sort_keys=True, default=cplaf_default)
 
 
 def ccr_default(obj):
 	if isinstance(obj, CpdCsvResult):
 		return vars(obj)
-	if isinstance(obj, ChromePermission):
-		return unicode(obj.as_triple())
 	raise TypeError(type(obj))
 
 
@@ -222,9 +214,10 @@ if __name__ == '__main__':
 	for app_id in immutable_ids:
 		abs_path = os.path.join(git_root_dir, app_id)
 
-		for other_id in app_ids:
+		for other_id in app_ids[:]:
 			if other_id == app_id:
-				logger.info('Skipping comparing with self')
+				app_ids.remove(other_id)
+				logger.info('Skipping comparing with self.')
 				continue
 			other_abs_path = os.path.join(git_root_dir, other_id)
 			result = cpd.run_cpd(abs_path, other_abs_path)
@@ -236,13 +229,33 @@ if __name__ == '__main__':
 					if ccr:
 						results.append(ccr)
 			if results:
+				curr_time = config_utils.current_time_millis()
 				final_result = {}
 				final_result['app_id'] = app_id
 				final_result['other_app_id'] = other_id
 				final_result['minimum_tokens'] = args.min_tokens
 				final_result['results'] = results
-				final_result['timestamp'] = config_utils.current_time_millis()
-				
-				put_to_es(es, es_index, es_doc_type, app_id, final_result)
+				final_result['timestamp'] = curr_time
+				document_name = '_'.join((app_id, other_id))
+
+				summary = {}
+				summary['app_id_1'] = app_id
+				summary['app_id_2'] = other_id
+				summary['document_id'] = document_name
+				summary['timestamp'] = curr_time
+				summary['duplications_found'] = len(results)
+				summary['duplicated_lines_count'] = 0
+				summary['duplicated_tokens_count'] = 0
+				summary['duplication_occurrences_count'] = 0
+
+				for r in results:
+					summary['duplicated_tokens_count'] += r.tokens
+					summary['duplicated_lines_count'] += r.lines
+					summary['duplication_occurrences_count'] += r.occurrences
+
+				put_to_es(es, es_index, es_doc_type, document_name, final_result)
+				put_to_es(es, es_index, es_doc_type, app_id, summary)
+				put_to_es(es, es_index, es_doc_type, other_id, summary)
+
 
 
