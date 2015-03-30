@@ -245,8 +245,4 @@ if __name__ == '__main__':
 				
 				put_to_es(es, es_index, es_doc_type, app_id, final_result)
 
-			break
-			
-		break
-
 
