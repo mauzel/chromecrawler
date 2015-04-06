@@ -77,6 +77,31 @@ class ElasticSearchStatAnalyzer:
 		#print unused_privilege_count
 		return
 
+	def count_requested_permissions(self):
+		unused_privilege_count={}
+		
+		for app_id in self.app_ids:
+			res = self.es.get(index = self.def_index, doc_type = self.type_current, id=app_id)
+			try:
+				if not res['_source']['LeastPrivilegeAnalyzer']['requested_permissions']:
+					continue
+				else:
+					cur_violations = res['_source']['LeastPrivilegeAnalyzer']['requested_permissions']
+					for violation in cur_violations:
+						if violation in unused_privilege_count:
+							unused_privilege_count[violation] = unused_privilege_count[violation] + 1
+						else:
+							unused_privilege_count[violation] = 1
+			except KeyError:
+				print "KeyError"
+
+		
+		for unused_privilege in unused_privilege_count:
+			print unused_privilege + " - " + str(unused_privilege_count[unused_privilege])
+
+		#print unused_privilege_count
+		return	
+
 
 	def num_of_unused_privileges(self):
 		number_of_unused_privileges={}
@@ -109,6 +134,38 @@ class ElasticSearchStatAnalyzer:
 
 		for num in number_of_unused_privileges:
 			print num + " - " + str(number_of_unused_privileges[num])
+
+	def num_of_requested_privileges(self):
+		number_of_unused_privileges={}
+
+		for app_id in self.app_ids:
+			res = self.es.get(index = self.def_index, doc_type = self.type_current, id = app_id)
+			try:
+				if not res['_source']['LeastPrivilegeAnalyzer']['unused_permissions']:
+					cur_num_of_violations = "0"
+					if cur_num_of_violations in number_of_unused_privileges:
+						number_of_unused_privileges[cur_num_of_violations] = number_of_unused_privileges[cur_num_of_violations] + 1
+					else:
+						number_of_unused_privileges[cur_num_of_violations] = 1
+					continue
+				else:
+					cur_num_of_violations = str(len(res['_source']['LeastPrivilegeAnalyzer']['requested_permissions']))
+					print cur_num_of_violations
+					if cur_num_of_violations in number_of_unused_privileges:
+						number_of_unused_privileges[cur_num_of_violations] = number_of_unused_privileges[cur_num_of_violations] + 1
+					else:
+						number_of_unused_privileges[cur_num_of_violations] = 1					
+
+
+			except KeyError:
+				if "KeyError" in number_of_unused_privileges:
+					number_of_unused_privileges["KeyError"] = number_of_unused_privileges["KeyError"] + 1
+				else:
+					number_of_unused_privileges["KeyError"] = 1
+				print "KeyError"
+
+		for num in number_of_unused_privileges:
+			print num + " - " + str(number_of_unused_privileges[num])		
 
 	
 	def num_violations_app_rating(self):
@@ -233,4 +290,6 @@ if __name__ == "__main__":
 
 	#es.num_of_unused_privileges()
 
-	es.num_violations_app_rating()
+	#es.num_violations_app_rating()
+	#es.num_of_requested_privileges()
+	es.count_requested_permissions()
