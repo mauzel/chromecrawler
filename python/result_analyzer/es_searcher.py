@@ -31,6 +31,31 @@ class ElasticSearchStatAnalyzer:
 		res = self.es.search(index = self.def_index, doc_type = self.type_current, body = {"query": {"match_all": {}}})
 		self.total_apps = res['hits']['total']	
 
+	def find_downloads(self):
+		
+		downloads_count_histogram = {'0' : '0', '1000' : '0', '10000' : '0', '100000' : '0', '1000000' : '0'}	
+		for app_id in self.app_ids:
+			res = self.es.get(index = self.def_index, doc_type = self.type_current, id=app_id)
+			
+			try:
+				cur_downloads = int(res['_source']['AppMetadata']['downloads'])
+				print cur_downloads
+				if cur_downloads < 1000:
+					downloads_count_histogram['0'] = int(downloads_count_histogram['0']) + 1
+				elif cur_downloads >= 1000 and cur_downloads < 10000:
+					downloads_count_histogram['1000'] = int(downloads_count_histogram['1000']) + 1
+				elif cur_downloads >= 10000 and cur_downloads < 100000:
+					downloads_count_histogram['10000'] = int(downloads_count_histogram['10000']) + 1
+				elif cur_downloads >= 100000 and cur_downloads < 1000000:
+					downloads_count_histogram['100000'] = int(downloads_count_histogram['100000']) + 1
+				elif cur_downloads >= 1000000:
+					downloads_count_histogram['1000000'] = int(downloads_count_histogram['100000']) + 1
+
+			except TypeError:
+				downloads_count_histogram['0'] = int(downloads_count_histogram['0']) + 1	
+
+		print downloads_count_histogram	
+
 	
 	def correlate_rating_unused_perm(self):
 		
@@ -276,7 +301,9 @@ class ElasticSearchStatAnalyzer:
 				else:
 					wepawet_analysis_results["KeyError"] = 1
 
-		print wepawet_analysis_results		
+		print wepawet_analysis_results
+
+
 
 
 if __name__ == "__main__":
@@ -292,4 +319,5 @@ if __name__ == "__main__":
 
 	#es.num_violations_app_rating()
 	#es.num_of_requested_privileges()
-	es.count_requested_permissions()
+	#es.count_requested_permissions()
+	ses.find_downloads()
