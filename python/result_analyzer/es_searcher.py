@@ -31,6 +31,31 @@ class ElasticSearchStatAnalyzer:
 		res = self.es.search(index = self.def_index, doc_type = self.type_current, body = {"query": {"match_all": {}}})
 		self.total_apps = res['hits']['total']	
 
+	def find_paid_apps(self):
+		for app_id in self.app_ids:
+			res = self.es.get(index = self.def_index, doc_type = self.type_current, id=app_id)
+			cur_price = float(res['_source']['AppMetadata']['price'])
+			if cur_price > 0:
+				print str(app_id) + " " + str(res['_source']['AppMetadata']['downloads']) + " " + str(res['_source']['AppMetadata']['rating_value']) + " " + str(cur_price)
+			
+
+	def find_top_rated_apps_threshold (self, lower_limit, upper_limit):
+		app_id_list=[]
+		count = 0
+		for app_id in self.app_ids:
+			res = self.es.get(index = self.def_index, doc_type = self.type_current, id=app_id)
+			try:
+				cur_downloads = int(res['_source']['AppMetadata']['downloads'])
+				if cur_downloads >= lower_limit and cur_downloads < upper_limit :
+					count = count + 1	
+					app_id_list.append(app_id)
+					print cur_downloads
+					print str(app_id) + " " + str(res['_source']['AppMetadata']['rating_value'])
+			
+			except TypeError:
+				continue
+		print count	
+
 	def find_downloads(self):
 		
 		downloads_count_histogram = {'0' : '0', '1000' : '0', '10000' : '0', '100000' : '0', '1000000' : '0'}	
@@ -49,7 +74,7 @@ class ElasticSearchStatAnalyzer:
 				elif cur_downloads >= 100000 and cur_downloads < 1000000:
 					downloads_count_histogram['100000'] = int(downloads_count_histogram['100000']) + 1
 				elif cur_downloads >= 1000000:
-					downloads_count_histogram['1000000'] = int(downloads_count_histogram['100000']) + 1
+					downloads_count_histogram['1000000'] = int(downloads_count_histogram['1000000']) + 1
 
 			except TypeError:
 				downloads_count_histogram['0'] = int(downloads_count_histogram['0']) + 1	
@@ -308,6 +333,7 @@ class ElasticSearchStatAnalyzer:
 
 if __name__ == "__main__":
 	es = ElasticSearchStatAnalyzer()
+	print es.total_apps
 	# es.correlate_rating_unused_perm()
 	#es.count_privilege_violations()
 	# es.top_rated_applications(100,200)
@@ -320,4 +346,6 @@ if __name__ == "__main__":
 	#es.num_violations_app_rating()
 	#es.num_of_requested_privileges()
 	#es.count_requested_permissions()
-	ses.find_downloads()
+	#es.find_downloads()
+	#es.find_top_rated_apps_threshold(10000000,100000000)
+	es.find_paid_apps()
